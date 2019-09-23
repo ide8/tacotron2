@@ -1,3 +1,6 @@
+.DS_Store
+.idea
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -102,3 +105,7 @@ venv.bak/
 
 # mypy
 .mypy_cache/
+
+nohup.out
+
+*.pickle

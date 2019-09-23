@@ -1,0 +1,135 @@
+# *****************************************************************************
+#  Copyright (c) 2018, NVIDIA CORPORATION.  All rights reserved.
+#
+#  Redistribution and use in source and binary forms, with or without
+#  modification, are permitted provided that the following conditions are met:
+#      * Redistributions of source code must retain the above copyright
+#        notice, this list of conditions and the following disclaimer.
+#      * Redistributions in binary form must reproduce the above copyright
+#        notice, this list of conditions and the following disclaimer in the
+#        documentation and/or other materials provided with the distribution.
+#      * Neither the name of the NVIDIA CORPORATION nor the
+#        names of its contributors may be used to endorse or promote products
+#        derived from this software without specific prior written permission.
+#
+#  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+#  ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+#  WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+#  DISCLAIMED. IN NO EVENT SHALL NVIDIA CORPORATION BE LIABLE FOR ANY
+#  DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+#  (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+#  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+#  ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+#  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+#  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+#
+# *****************************************************************************
+
+import sys
+from os.path import abspath, dirname
+# enabling modules discovery from global entrypoint
+sys.path.append(abspath(dirname(__file__)+'/'))
+from tacotron2.model import Tacotron2
+from waveglow.model import WaveGlow
+import torch
+
+from hparams import Hyperparameters as hp
+
+
+def parse_model_args(model_name, parser, add_help=False):
+    if model_name == 'Tacotron2':
+        from tacotron2.arg_parser import parse_tacotron2_args
+        return parse_tacotron2_args(parser, add_help)
+    if model_name == 'WaveGlow':
+        from waveglow.arg_parser import parse_waveglow_args
+        return parse_waveglow_args(parser, add_help)
+    else:
+        raise NotImplementedError(model_name)
+
+
+def batchnorm_to_float(module):
+    """Converts batch norm to FP32"""
+    if isinstance(module, torch.nn.modules.batchnorm._BatchNorm):
+        module.float()
+    for child in module.children():
+        batchnorm_to_float(child)
+    return module
+
+
+def get_model(model_name, model_config, to_cuda):
+    """ Code chooses a model based on name"""
+    model = None
+    if model_name == 'Tacotron2':
+        model = Tacotron2(**model_config)
+    elif model_name == 'WaveGlow':
+        model = WaveGlow(**model_config)
+    else:
+        raise NotImplementedError(model_name)
+    if to_cuda:
+        model = model.cuda()
+    return model
+
+
+def get_model_config(model_name, args):
+    """ Code chooses a model based on name"""
+    if model_name == 'Tacotron2':
+        model_config = dict(
+            # optimization
+            mask_padding=hp.mask_padding,
+            # audio
+            n_mel_channels=hp.n_mel_channels,
+            # symbols
+            n_symbols=hp.n_symbols,
+            symbols_embedding_dim=hp.symbols_embedding_dim,
+            # speakers
+            n_speakers=hp.n_speakers,
+            speakers_embedding_dim=hp.speakers_embedding_dim,
+            # encoder
+            encoder_kernel_size=hp.encoder_kernel_size,
+            encoder_n_convolutions=hp.encoder_n_convolutions,
+            encoder_embedding_dim=hp.encoder_embedding_dim,
+            # attention
+            attention_rnn_dim=hp.attention_rnn_dim,
+            attention_dim=hp.attention_dim,
+            # attention location
+            attention_location_n_filters=hp.attention_location_n_filters,
+            attention_location_kernel_size=hp.attention_location_kernel_size,
+            # decoder
+            n_frames_per_step=hp.n_frames_per_step,
+            decoder_rnn_dim=hp.decoder_rnn_dim,
+            prenet_dim=hp.prenet_dim,
+            max_decoder_steps=hp.max_decoder_steps,
+            gate_threshold=hp.gate_threshold,
+            p_attention_dropout=hp.p_attention_dropout,
+            p_decoder_dropout=hp.p_decoder_dropout,
+            # Postnet
+            postnet_embedding_dim=hp.postnet_embedding_dim,
+            postnet_kernel_size=hp.postnet_kernel_size,
+            postnet_n_convolutions=hp.postnet_n_convolutions,
+            decoder_no_early_stopping=hp.decoder_no_early_stopping,
+            # GST
+            gst_use=hp.gst_use,
+            gst_n_tokens=hp.gst_n_tokens,
+            gst_n_heads=hp.gst_n_heads,
+            # Reference Encoder
+            style_embedding_dim=hp.style_embedding_dim,
+            ref_enc_filters=hp.ref_enc_filters,
+            ref_enc_kernel_size=hp.ref_enc_kernel_size,
+            ref_enc_stride=hp.ref_enc_stride,
+            ref_enc_pad=hp.ref_enc_pad,
+            ref_enc_gru_dim=hp.ref_enc_gru_dim
+        )
+        return model_config
+    elif model_name == 'WaveGlow':
+        model_config = dict(
+            n_mel_channels=hp.n_mel_channels,
+            n_flows=hp.n_flows,
+            n_group=hp.n_group,
+            n_early_every=hp.n_early_every,
+            n_early_size=hp.n_early_size,
+            sigma=hp.wg_sigma,
+            WN_config=hp.wn_config
+        )
+        return model_config
+    else:
+        raise NotImplementedError(model_name)
