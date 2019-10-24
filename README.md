@@ -66,10 +66,7 @@ environment or create your own container, see the versioned
 
 ## Quick Start Guide
 
-To train your model using mixed precision with Tensor Cores or using FP32,
-perform the following steps using the default parameters of the Tacrotron 2
-and WaveGlow model on the [LJ Speech](https://keithito.com/LJ-Speech-Dataset/)
-dataset.
+To train Tacotron2 model:
 
 1. Clone the repository.
    ```bash
