@@ -68,11 +68,11 @@ def parse_args(parser):
     parser.add_argument('--log-file', type=str, default='nvlog.json',
                         help='Filename for logging')
     parser.add_argument('--phrase-path', type=str, default=None,
-                        help='Path to phrase sequence file used for sample generation')
+                        help='Path to phrase sequence file used for sample generation') # DONT USE
     parser.add_argument('--waveglow-checkpoint', type=str, default=None,
-                        help='Path to pre-trained WaveGlow checkpoint for sample generation')
+                        help='Path to pre-trained WaveGlow checkpoint for sample generation') # DONT USE
     parser.add_argument('--tacotron2-checkpoint', type=str, default=None,
-                        help='Path to pre-trained Tacotron2 checkpoint for sample generation')
+                        help='Path to pre-trained Tacotron2 checkpoint for sample generation') # DONT USE
     parser.add_argument('--anneal-steps', nargs='*',
                         help='Epochs after which decrease learning rate')
     parser.add_argument('--anneal-factor', type=float, choices=[0.1, 0.3], default=0.1,
@@ -549,6 +549,7 @@ def main():
                 checkpoint_path = os.path.join(
                     args.output_directory, "checkpoint_{}_{}".format(model_name, epoch))
                 save_checkpoint(model, epoch, model_config, optimizer, checkpoint_path)
+
                 save_sample(model_name, model, args.waveglow_checkpoint,
                             args.tacotron2_checkpoint, args.phrase_path,
                             os.path.join(args.output_directory, "sample_{}_{}.wav".format(model_name, iteration)), args.sampling_rate)

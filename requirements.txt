@@ -4,3 +4,4 @@ inflect
 librosa
 scipy
 Unidecode
+pytorch-transformers

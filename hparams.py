@@ -16,7 +16,7 @@ class Hyperparameters():
 	max_wav_value=32768.0                      # Maximum audiowave value
 
 
-	# Tacotron Params
+	### Tacotron Params
 	# Optimization
 	mask_padding = False                        # Use mask padding
 
@@ -70,7 +70,7 @@ class Hyperparameters():
 	ref_enc_gru_dim = style_embedding_dim // 2  # Reference encoder GRU dim
 
 
-	# Waveglow params
+	### Waveglow params
 	n_flows = 12								# Number of steps of flow
 	n_group = 8									# Number of samples in a group processed by the steps of flow
 	n_early_every = 4							# Determines how often (i.e., after how many coupling layers) a number of channels (defined by --early-size parameter) are output to the loss function
@@ -82,3 +82,8 @@ class Hyperparameters():
 		kernel_size=3,							# Kernel size for dialted convolution in the affine coupling layer (WN)
 		n_channels=512							# Number of channels in WN
 	)
+
+
+	### LM Parameters
+	use_lm = False
+	language_model = 'gpt-2'

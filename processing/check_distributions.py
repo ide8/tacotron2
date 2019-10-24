@@ -6,7 +6,6 @@ import pickle
 from multiprocessing import Pool
 from tqdm import tqdm
 
-sys.path.append('/workspace/code/tacotron2_multispeaker_pytorch')
 from tacotron2.text import text_to_sequence
 
 speakers = [
