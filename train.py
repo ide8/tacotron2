@@ -38,6 +38,7 @@ from torch.nn.parameter import Parameter
 
 import torch.distributed as dist
 from torch.utils.data.distributed import DistributedSampler
+from torch.utils import tensorboard
 
 from apex.parallel import DistributedDataParallel as DDP
 
@@ -79,6 +80,8 @@ def parse_args(parser):
                         help='Factor for annealing learning rate')
     parser.add_argument('--restore-from', type=str, default=None,
                         help='Checkpoint path to restore from')
+    parser.add_argument('--tensorboard-log-dir', type=str, default='./',
+                        help="TensorBoard logs save directory location.")
 
     # training
     training = parser.add_argument_group('training setup')
@@ -254,6 +257,7 @@ def evaluating(model):
 
 def validate(model, criterion, valset, iteration, batch_size, world_size,
              collate_fn, distributed_run, rank, batch_to_gpu):
+    # TODO: Fix redaundant params
     """Handles all the validation scoring and printing"""
     with evaluating(model), torch.no_grad():
         val_sampler = DistributedSampler(valset) if distributed_run else None
@@ -274,7 +278,9 @@ def validate(model, criterion, valset, iteration, batch_size, world_size,
             val_loss += reduced_val_loss
         val_loss = val_loss / (i + 1)
 
-    LOGGER.log(key="val_iter_loss", value=reduced_val_loss)
+    LOGGER.log(key="val_iter_loss", value=val_loss)
+
+    return val_loss
 
 
 def adjust_learning_rate(epoch, optimizer, learning_rate,
@@ -443,6 +449,9 @@ def main():
 
     LOGGER.log(key=tags.TRAIN_LOOP)
 
+    # Initialize torch TensorBoard writer
+    tensorboard_writer = tensorboard.SummaryWriter(log_dir=os.path.join(args.tensorboard_log_dir, model_name))
+
     # Restore training from checkpoint logic
     if start_epoch >= args.epochs:
         print('Checkpoint epoch {} >= total epochs {}'.format(start_epoch, args.epochs))
@@ -529,19 +538,45 @@ def main():
             epoch_stop_time = time.time()
             epoch_time = epoch_stop_time - epoch_start_time
 
+            train_epoch_items_per_sec_metric = reduced_num_items_epoch / epoch_time
+            train_epoch_avg_items_per_sec_metric = \
+                train_epoch_avg_items_per_sec / num_iters if num_iters > 0 else 0.0
+            train_epoch_avg_loss_metric = \
+                train_epoch_avg_loss/num_iters if num_iters > 0 else 0.0
+
             LOGGER.log(key="train_epoch_items/sec",
-                       value=(reduced_num_items_epoch/epoch_time))
+                       value=train_epoch_items_per_sec_metric)
             LOGGER.log(key="train_epoch_avg_items/sec",
-                       value=(train_epoch_avg_items_per_sec/num_iters if num_iters > 0 else 0.0))
-            LOGGER.log(key="train_epoch_avg_loss", value=(
-                train_epoch_avg_loss/num_iters if num_iters > 0 else 0.0))
+                       value=train_epoch_avg_items_per_sec_metric)
+            LOGGER.log(key="train_epoch_avg_loss",
+                       value=train_epoch_avg_loss_metric)
             LOGGER.log(key="epoch_time", value=epoch_time)
+
+            # Add logs to TensorBoard
+            tensorboard_writer.add_scalar(tag='epoch_items_per_sec/train',
+                                          scalar_value=train_epoch_items_per_sec_metric,
+                                          global_step=epoch)
+            tensorboard_writer.add_scalar(tag='epoch_avg_items_per_sec/train',
+                                          scalar_value=train_epoch_avg_items_per_sec_metric,
+                                          global_step=epoch)
+            tensorboard_writer.add_scalar(tag='epoch_avg_loss/train',
+                                          scalar_value=train_epoch_avg_loss_metric,
+                                          global_step=epoch)
+            tensorboard_writer.add_scalar(tag='epoch_time/train',
+                                          scalar_value=epoch_time,
+                                          global_step=epoch)
 
             LOGGER.log(key=tags.EVAL_START, value=epoch)
 
-            validate(model, criterion, valset, iteration,
-                     args.batch_size, args.world_size, collate_fn,
-                     distributed_run, args.rank, batch_to_gpu)
+            reduced_val_loss = validate(model, criterion, valset, iteration,
+                                        args.batch_size, args.world_size, collate_fn,
+                                        distributed_run, args.rank, batch_to_gpu)
+
+            # Add configs to tensorboard
+
+            tensorboard_writer.add_scalar(tag='epoch_avg_loss/val',
+                                          scalar_value=reduced_val_loss,
+                                          global_step=epoch)
 
             LOGGER.log(key=tags.EVAL_STOP, value=epoch)
 
@@ -564,6 +599,8 @@ def main():
     print("training time", run_stop_time - run_start_time)
 
     LOGGER.timed_block_stop("run")
+
+    tensorboard_writer.close()
 
     if args.rank == 0:
         LOGGER.finish()

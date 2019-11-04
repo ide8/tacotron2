@@ -4,6 +4,7 @@ from tacotron2.text import symbols
 
 global symbols
 
+
 class Hyperparameters():
 	# Audio params
 	sampling_rate=22050                        # Sampling rate
