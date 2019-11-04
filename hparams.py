@@ -58,7 +58,7 @@ class Hyperparameters():
 	postnet_n_convolutions = 5                  # Number of postnet convolutions
 
 	# GST
-	gst_use = True                              # Use or not to use GST
+	gst_use = False                              # Use or not to use GST
 	gst_n_tokens = 10                           # Number of GSTs
 	gst_n_heads = 16                            # Number of heads in GST multi-head attention
 
