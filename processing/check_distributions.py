@@ -1,5 +1,7 @@
 import os
 import sys
+sys.path.append('/workspace/code/gst')
+
 import audioread
 import pickle
 
@@ -8,6 +10,7 @@ from tqdm import tqdm
 
 from tacotron2.text import text_to_sequence
 
+
 speakers = [
     'blizzard_2013',
     'elizabeth_klett',
@@ -15,8 +18,10 @@ speakers = [
     'judy_bieber',
     'linda_johnson',
     'mary_ann',
-    'samantha_fresh',
-    'samantha_old'
+    'samantha_default',
+    'scarjo_her',
+    'scarjo_the_dive_descript_grouped',
+    'scarjo_the_dive_descript_ungrouped'
 ]
 
 data_path = '/workspace/training_data/'

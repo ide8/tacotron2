@@ -84,7 +84,7 @@ def parse_args(parser):
     training = parser.add_argument_group('training setup')
     training.add_argument('--epochs', type=int, required=True,
                           help='Number of total epochs to run')
-    training.add_argument('--epochs-per-checkpoint', type=int, default=25,
+    training.add_argument('--epochs-per-checkpoint', type=int, default=50,
                           help='Number of epochs per checkpoint')
     training.add_argument('--seed', type=int, default=1234,
                           help='Seed for PyTorch random number generators')
@@ -261,8 +261,8 @@ def validate(model, criterion, valset, iteration, batch_size, world_size,
                                 sampler=val_sampler,
                                 batch_size=batch_size, pin_memory=False,
                                 collate_fn=collate_fn)
-
         val_loss = 0.0
+
         for i, batch in enumerate(val_loader):
             x, y, len_x = batch_to_gpu(batch)
             y_pred = model(x)
@@ -271,7 +271,9 @@ def validate(model, criterion, valset, iteration, batch_size, world_size,
                 reduced_val_loss = reduce_tensor(loss.data, world_size).item()
             else:
                 reduced_val_loss = loss.item()
+
             val_loss += reduced_val_loss
+
         val_loss = val_loss / (i + 1)
 
     LOGGER.log(key="val_iter_loss", value=reduced_val_loss)

@@ -18,12 +18,12 @@ def main(output_directory, data):
     """
     jobs = []
 
-    for source_directory, speaker_id, process_audio_flag in tqdm(data):
+    for source_directory, speaker_id, process_audio_flag, trim_audio_flag in tqdm(data):
         for path, dirs, files in os.walk(source_directory):
             if 'wavs' in dirs and 'metadata.csv' in files:
                 speaker_name = source_directory.split('/')[-1]
 
-                sub_jobs = process(path, output_directory, speaker_name, speaker_id, process_audio_flag)
+                sub_jobs = process(path, output_directory, speaker_name, speaker_id, process_audio_flag, trim_audio_flag)
 
                 jobs += sub_jobs
 
@@ -37,11 +37,7 @@ def main(output_directory, data):
     print('Done!')
 
 
-def process(path, output_directory, speaker_name, speaker_id, process_audio=True):
-    # print('---------------------------------------------------------------------------------')
-    # print('path:', path)
-    # print('speaker_name:', speaker_name)
-    # print('file_prefix:', file_prefix)
+def process(path, output_directory, speaker_name, speaker_id, process_audio=True, trim_audio=True):
     cmds = []
 
     with open(os.path.join(path, 'metadata.csv'), 'r') as file:
@@ -70,7 +66,7 @@ def process(path, output_directory, speaker_name, speaker_id, process_audio=True
             inter_file_path = os.path.join(inter_audio_path, file_name)
             final_file_path = os.path.join(output_audio_path, file_name)
 
-            files_to_process.append((input_file_path, inter_file_path, final_file_path, process_audio))
+            files_to_process.append((input_file_path, inter_file_path, final_file_path, process_audio, trim_audio))
 
             new_line = '|'.join([final_file_path, text, str(speaker_id)]) + '\n'
 
@@ -83,11 +79,13 @@ def process(path, output_directory, speaker_name, speaker_id, process_audio=True
 
 
 def mapper(job):
-    fin, fint, fout, process_audio = job
+    fin, fint, fout, process_audio, trim_audio = job
 
     if process_audio:
         data, _ = librosa.load(fin, sr=SR)
-        data, _ = librosa.effects.trim(data, top_db=TOP_DB)
+
+        if trim_audio:
+            data, _ = librosa.effects.trim(data, top_db=TOP_DB)
 
         wavfile.write(fint, SR, data)
 
@@ -105,35 +103,60 @@ if __name__ == '__main__':
         #     '/workspace/data/aws/dataset/linda_johnson',
         #     0,
         #     False
+        #     False
+        # ),
+        # (
+        #     '/workspace/data/gcp/samantha_default',
+        #     1,
+        #     True
+        #     True
+        # ),
+        # (
+        #     '/workspace/data/scarjo_her',
+        #     1,
+        #     True,
+        #     True
         # ),
         (
-            '/workspace/data/gcp/samantha_old', #'/workspace/data/aws/dataset/samantha_fresh',
+            '/workspace/data/scarjo_the_dive_descript_grouped',
             1,
+            True,
+            True
+        ),
+        (
+            '/workspace/data/scarjo_the_dive_descript_ungrouped',
+            1,
+            True,
             True
         ),
         # (
         #     '/workspace/data/aws/dataset/blizzard_2013',
         #     2,
         #     True
+        #     True
         # ),
         # (
         #     '/workspace/data/aws/dataset/en_US/by_book/female/judy_bieber',
         #     3,
+        #     True
         #     True
         # ),
         # (
         #     '/workspace/data/aws/dataset/en_US/by_book/female/mary_ann',
         #     4,
         #     True
+        #     True
         # ),
         # (
         #     '/workspace/data/aws/dataset/en_UK/by_book/female/elizabeth_klett',
         #     5,
         #     True
+        #     True
         # ),
         # (
         #     '/workspace/data/aws/dataset/en_US/by_book/male/elliot_miller',
         #     6,
+        #     True
         #     True
         # )
     ]
