@@ -64,8 +64,6 @@ parser = argparse.ArgumentParser(description='PyTorch Tacotron 2 Training')
 parser.add_argument('--exp', type=str, default=None, required=True, help="Name of an experiment for configs setting.")
 
 distributed = parser.add_argument_group('distributed setup')
-distributed.add_argument('--distributed-run', default=True, type=bool,
-                         help='enable distributed run')
 distributed.add_argument('--rank', default=0, type=int,
                          help='Rank of the process, do not set! Done by multiproc module')
 distributed.add_argument('--world-size', default=1, type=int,
