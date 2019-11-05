@@ -33,7 +33,7 @@ from tacotron2.model import Tacotron2
 from waveglow.model import WaveGlow
 import torch
 
-from hparams import Hyperparameters as hp
+from configs.config import Config
 
 
 def parse_model_args(model_name, parser, add_help=False):
@@ -70,65 +70,65 @@ def get_model(model_name, model_config, to_cuda):
     return model
 
 
-def get_model_config(model_name, args):
+def get_model_config(model_name):
     """ Code chooses a model based on name"""
     if model_name == 'Tacotron2':
         model_config = dict(
             # optimization
-            mask_padding=hp.mask_padding,
+            mask_padding=Config.mask_padding,
             # audio
-            n_mel_channels=hp.n_mel_channels,
+            n_mel_channels=Config.n_mel_channels,
             # symbols
-            n_symbols=hp.n_symbols,
-            symbols_embedding_dim=hp.symbols_embedding_dim,
+            n_symbols=Config.n_symbols,
+            symbols_embedding_dim=Config.symbols_embedding_dim,
             # speakers
-            n_speakers=hp.n_speakers,
-            speakers_embedding_dim=hp.speakers_embedding_dim,
+            n_speakers=Config.n_speakers,
+            speakers_embedding_dim=Config.speakers_embedding_dim,
             # encoder
-            encoder_kernel_size=hp.encoder_kernel_size,
-            encoder_n_convolutions=hp.encoder_n_convolutions,
-            encoder_embedding_dim=hp.encoder_embedding_dim,
+            encoder_kernel_size=Config.encoder_kernel_size,
+            encoder_n_convolutions=Config.encoder_n_convolutions,
+            encoder_embedding_dim=Config.encoder_embedding_dim,
             # attention
-            attention_rnn_dim=hp.attention_rnn_dim,
-            attention_dim=hp.attention_dim,
+            attention_rnn_dim=Config.attention_rnn_dim,
+            attention_dim=Config.attention_dim,
             # attention location
-            attention_location_n_filters=hp.attention_location_n_filters,
-            attention_location_kernel_size=hp.attention_location_kernel_size,
+            attention_location_n_filters=Config.attention_location_n_filters,
+            attention_location_kernel_size=Config.attention_location_kernel_size,
             # decoder
-            n_frames_per_step=hp.n_frames_per_step,
-            decoder_rnn_dim=hp.decoder_rnn_dim,
-            prenet_dim=hp.prenet_dim,
-            max_decoder_steps=hp.max_decoder_steps,
-            gate_threshold=hp.gate_threshold,
-            p_attention_dropout=hp.p_attention_dropout,
-            p_decoder_dropout=hp.p_decoder_dropout,
+            n_frames_per_step=Config.n_frames_per_step,
+            decoder_rnn_dim=Config.decoder_rnn_dim,
+            prenet_dim=Config.prenet_dim,
+            max_decoder_steps=Config.max_decoder_steps,
+            gate_threshold=Config.gate_threshold,
+            p_attention_dropout=Config.p_attention_dropout,
+            p_decoder_dropout=Config.p_decoder_dropout,
             # Postnet
-            postnet_embedding_dim=hp.postnet_embedding_dim,
-            postnet_kernel_size=hp.postnet_kernel_size,
-            postnet_n_convolutions=hp.postnet_n_convolutions,
-            decoder_no_early_stopping=hp.decoder_no_early_stopping,
+            postnet_embedding_dim=Config.postnet_embedding_dim,
+            postnet_kernel_size=Config.postnet_kernel_size,
+            postnet_n_convolutions=Config.postnet_n_convolutions,
+            decoder_no_early_stopping=Config.decoder_no_early_stopping,
             # GST
-            gst_use=hp.gst_use,
-            gst_n_tokens=hp.gst_n_tokens,
-            gst_n_heads=hp.gst_n_heads,
+            gst_use=Config.gst_use,
+            gst_n_tokens=Config.gst_n_tokens,
+            gst_n_heads=Config.gst_n_heads,
             # Reference Encoder
-            style_embedding_dim=hp.style_embedding_dim,
-            ref_enc_filters=hp.ref_enc_filters,
-            ref_enc_kernel_size=hp.ref_enc_kernel_size,
-            ref_enc_stride=hp.ref_enc_stride,
-            ref_enc_pad=hp.ref_enc_pad,
-            ref_enc_gru_dim=hp.ref_enc_gru_dim
+            style_embedding_dim=Config.style_embedding_dim,
+            ref_enc_filters=Config.ref_enc_filters,
+            ref_enc_kernel_size=Config.ref_enc_kernel_size,
+            ref_enc_stride=Config.ref_enc_stride,
+            ref_enc_pad=Config.ref_enc_pad,
+            ref_enc_gru_dim=Config.ref_enc_gru_dim
         )
         return model_config
     elif model_name == 'WaveGlow':
         model_config = dict(
-            n_mel_channels=hp.n_mel_channels,
-            n_flows=hp.n_flows,
-            n_group=hp.n_group,
-            n_early_every=hp.n_early_every,
-            n_early_size=hp.n_early_size,
-            sigma=hp.wg_sigma,
-            WN_config=hp.wn_config
+            n_mel_channels=Config.n_mel_channels,
+            n_flows=Config.n_flows,
+            n_group=Config.n_group,
+            n_early_every=Config.n_early_every,
+            n_early_size=Config.n_early_size,
+            sigma=Config.wg_sigma,
+            WN_config=Config.wn_config
         )
         return model_config
     else:

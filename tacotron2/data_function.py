@@ -26,7 +26,6 @@
 # *****************************************************************************
 
 import random
-import numpy as np
 import torch
 import torch.utils.data
 
@@ -34,22 +33,24 @@ import common.layers as layers
 from common.utils import load_wav_to_torch, load_filepaths_and_text, to_gpu
 from tacotron2.text import text_to_sequence
 
+
 class TextMelLoader(torch.utils.data.Dataset):
     """
         1) loads audio,text pairs
         2) normalizes text and converts them to sequences of one-hot vectors
         3) computes mel-spectrograms from audio files.
     """
-    def __init__(self, audiopaths_and_text, args):
+    def __init__(self, audiopaths_and_text, text_cleaners, load_mel_from_disk, max_wav_value, sampling_rate,
+                 filter_length, hop_length, win_length, n_mel_channels, mel_fmin, mel_fmax):
+
         self.audiopaths_and_text = load_filepaths_and_text(audiopaths_and_text)
-        self.text_cleaners = args.text_cleaners
-        self.max_wav_value = args.max_wav_value
-        self.sampling_rate = args.sampling_rate
-        self.load_mel_from_disk = args.load_mel_from_disk
-        self.stft = layers.TacotronSTFT(
-            args.filter_length, args.hop_length, args.win_length,
-            args.n_mel_channels, args.sampling_rate, args.mel_fmin,
-            args.mel_fmax)
+        self.text_cleaners = text_cleaners
+        self.max_wav_value = max_wav_value
+        self.sampling_rate = sampling_rate
+        self.load_mel_from_disk = load_mel_from_disk
+
+        self.stft = layers.TacotronSTFT(filter_length, hop_length, win_length, n_mel_channels, sampling_rate,
+                                        mel_fmin, mel_fmax)
         random.seed(1234)
         random.shuffle(self.audiopaths_and_text)
 

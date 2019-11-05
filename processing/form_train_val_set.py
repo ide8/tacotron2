@@ -7,25 +7,25 @@ from tqdm import tqdm
 np.random.seed(42)
 minimum_viable_dur = 0.05
 
-N = 8500
+N = 100
 
 if __name__ == '__main__':
     speakers = {
-        'blizzard_2013': 2,
-        #'elizabeth_klett': 5,
-        #'judy_bieber': 3,
+        # 'blizzard_2013': 2,
+        # 'elizabeth_klett': 5,
+        # 'judy_bieber': 3,
         'linda_johnson': 0,
-        #'mary_ann': 4,
-        #'samantha_default': 1,
-        #'scarjo_her': 1,
+        # 'mary_ann': 4,
+        # 'samantha_default': 1,
+        # 'scarjo_her': 1,
         'scarjo_the_dive_descript_grouped': 1,
-        'scarjo_the_dive_descript_ungrouped': 1,
-        #'elliot_miller': 6
+        # 'scarjo_the_dive_descript_ungrouped': 1,
+        # 'elliot_miller': 6
     }
 
     limit_by = 'linda_johnson'
     tdata = '/workspace/training_data'
-    p = '/workspace/code/gst/processing/data.pickle'
+    p = '/workspace/code/processing/data.pickle'
 
     train_lines = []
     val_lines = []

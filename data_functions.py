@@ -32,6 +32,8 @@ from waveglow.data_function import MelAudioLoader
 from tacotron2.data_function import batch_to_gpu as batch_to_gpu_tacotron2
 from waveglow.data_function import batch_to_gpu as batch_to_gpu_waveglow
 
+from configs.config import Config
+
 
 def get_collate_function(model_name, n_frames_per_step):
     if model_name == 'Tacotron2':
@@ -45,11 +47,30 @@ def get_collate_function(model_name, n_frames_per_step):
     return collate_fn
 
 
-def get_data_loader(model_name, audiopaths_and_text, args):
+def get_data_loader(model_name, audiopaths_and_text):
     if model_name == 'Tacotron2':
-        data_loader = TextMelLoader(audiopaths_and_text, args)
+        data_loader = TextMelLoader(audiopaths_and_text=audiopaths_and_text,
+                                    text_cleaners=Config.text_cleaners,
+                                    load_mel_from_disk=Config.load_mel_from_dist,
+                                    filter_length=Config.filter_length,
+                                    max_wav_value=Config.max_wav_value,
+                                    sampling_rate=Config.sampling_rate,
+                                    hop_length=Config.hop_length,
+                                    win_length=Config.win_length,
+                                    n_mel_channels=Config.n_mel_channels,
+                                    mel_fmax=Config.mel_fmax,
+                                    mel_fmin=Config.mel_fmin)
     elif model_name == 'WaveGlow':
-        data_loader = MelAudioLoader(audiopaths_and_text, args)
+        data_loader = MelAudioLoader(audiopaths_and_text=audiopaths_and_text,
+                                     filter_length=Config.filter_length,
+                                     hop_length=Config.hop_length,
+                                     win_length=Config.win_length,
+                                     n_mel_channels=Config.n_mel_channels,
+                                     sampling_rate=Config.sampling_rate,
+                                     mel_fmin=Config.mel_fmin,
+                                     mel_fmax=Config.mel_fmax,
+                                     segment_length=Config.segment_length,
+                                     max_wav_value=Config.max_wav_value)
     else:
         raise NotImplementedError(
             "unknown data loader requested: {}".format(model_name))

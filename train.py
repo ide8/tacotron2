@@ -27,19 +27,22 @@
 
 import os
 import time
+import json
 import argparse
+import shutil
 import numpy as np
 from contextlib import contextmanager
 
+from datetime import datetime
+
 import torch
 from torch.utils.data import DataLoader
-from torch.autograd import Variable
-from torch.nn.parameter import Parameter
 
 import torch.distributed as dist
 from torch.utils.data.distributed import DistributedSampler
 from torch.utils import tensorboard
 
+# noinspection PyUnresolvedReferences
 from apex.parallel import DistributedDataParallel as DDP
 
 import models
@@ -57,118 +60,22 @@ amp.lists.functional_overrides.FP32_FUNCS.remove('softmax')
 amp.lists.functional_overrides.FP16_FUNCS.append('softmax')
 
 
-def parse_args(parser):
-    """
-    Parse commandline arguments.
-    """
+parser = argparse.ArgumentParser(description='PyTorch Tacotron 2 Training')
+parser.add_argument('--exp', type=str, default=None, required=True, help="Name of an experiment for configs setting.")
 
-    parser.add_argument('-o', '--output_directory', type=str, required=True,
-                        help='Directory to save checkpoints')
-    parser.add_argument('-m', '--model-name', type=str, default='', required=True,
-                        help='Model to train')
-    parser.add_argument('--log-file', type=str, default='nvlog.json',
-                        help='Filename for logging')
-    parser.add_argument('--phrase-path', type=str, default=None,
-                        help='Path to phrase sequence file used for sample generation') # DONT USE
-    parser.add_argument('--waveglow-checkpoint', type=str, default=None,
-                        help='Path to pre-trained WaveGlow checkpoint for sample generation') # DONT USE
-    parser.add_argument('--tacotron2-checkpoint', type=str, default=None,
-                        help='Path to pre-trained Tacotron2 checkpoint for sample generation') # DONT USE
-    parser.add_argument('--anneal-steps', nargs='*',
-                        help='Epochs after which decrease learning rate')
-    parser.add_argument('--anneal-factor', type=float, choices=[0.1, 0.3], default=0.1,
-                        help='Factor for annealing learning rate')
-    parser.add_argument('--restore-from', type=str, default=None,
-                        help='Checkpoint path to restore from')
-    parser.add_argument('--tensorboard-log-dir', type=str, default='./',
-                        help="TensorBoard logs save directory location.")
+distributed = parser.add_argument_group('distributed setup')
+distributed.add_argument('--distributed-run', default=True, type=bool,
+                         help='enable distributed run')
+distributed.add_argument('--rank', default=0, type=int,
+                         help='Rank of the process, do not set! Done by multiproc module')
+distributed.add_argument('--world-size', default=1, type=int,
+                         help='Number of processes, do not set! Done by multiproc module')
+args = parser.parse_args()
 
-    # training
-    training = parser.add_argument_group('training setup')
-    training.add_argument('--epochs', type=int, required=True,
-                          help='Number of total epochs to run')
-    training.add_argument('--epochs-per-checkpoint', type=int, default=50,
-                          help='Number of epochs per checkpoint')
-    training.add_argument('--seed', type=int, default=1234,
-                          help='Seed for PyTorch random number generators')
-    training.add_argument('--dynamic-loss-scaling', type=bool, default=True,
-                          help='Enable dynamic loss scaling')
-    training.add_argument('--amp-run', action='store_true',
-                          help='Enable AMP')
-    training.add_argument('--cudnn-enabled', action='store_true',
-                          help='Enable cudnn')
-    training.add_argument('--cudnn-benchmark', action='store_true',
-                          help='Run cudnn benchmark')
+shutil.copyfile(os.path.join('configs', 'experiments', args.exp + '.py'), os.path.join('configs', 'config.py'))
 
 
-    optimization = parser.add_argument_group('optimization setup')
-    optimization.add_argument(
-        '--use-saved-learning-rate', default=False, type=bool)
-    optimization.add_argument('-lr', '--learning-rate', type=float, required=True,
-                              help='Learing rate')
-    optimization.add_argument('--weight-decay', default=1e-6, type=float,
-                              help='Weight decay')
-    optimization.add_argument('--grad-clip-thresh', default=1.0, type=float,
-                              help='Clip threshold for gradients')
-    optimization.add_argument('-bs', '--batch-size', type=int, required=True,
-                              help='Batch size per GPU')
-    optimization.add_argument('--grad-clip', default=5.0, type=float,
-                              help='Enables gradient clipping and sets maximum gradient norm value')
-
-    # dataset parameters
-    dataset = parser.add_argument_group('dataset parameters')
-    dataset.add_argument('--load-mel-from-disk', action='store_true',
-                         help='Loads mel spectrograms from disk instead of computing them on the fly')
-    dataset.add_argument('--training-files',
-                         type=str, help='Path to training filelist')
-    dataset.add_argument('--validation-files',
-                         type=str, help='Path to validation filelist')
-    dataset.add_argument('--text-cleaners', nargs='*',
-                         default=['english_cleaners'], type=str,
-                         help='Type of text cleaners for input text')
-
-    # TODO: Move audio params into model config
-    # audio parameters
-    audio = parser.add_argument_group('audio parameters')
-    audio.add_argument('--n-mel-channels', default=80, type=int,
-                       help='Number of bins in mel-spectrograms')
-    audio.add_argument('--max-wav-value', default=32768.0, type=float,
-                       help='Maximum audiowave value')
-    audio.add_argument('--sampling-rate', default=22050, type=int,
-                       help='Sampling rate')
-    audio.add_argument('--filter-length', default=1024, type=int,
-                       help='Filter length')
-    audio.add_argument('--hop-length', default=256, type=int,
-                       help='Hop (stride) length')
-    audio.add_argument('--win-length', default=1024, type=int,
-                       help='Window length')
-    audio.add_argument('--mel-fmin', default=0.0, type=float,
-                       help='Minimum mel frequency')
-    audio.add_argument('--mel-fmax', default=8000.0, type=float,
-                       help='Maximum mel frequency')
-
-    audio.add_argument('--segment-length', default=4000, type=int,
-                        help='Segment length (audio samples) processed per iteration')
-
-
-
-
-
-    distributed = parser.add_argument_group('distributed setup')
-    distributed.add_argument('--distributed-run', default=True, type=bool,
-                             help='enable distributed run')
-    distributed.add_argument('--rank', default=0, type=int,
-                             help='Rank of the process, do not set! Done by multiproc module')
-    distributed.add_argument('--world-size', default=1, type=int,
-                             help='Number of processes, do not set! Done by multiproc module')
-    distributed.add_argument('--dist-url', type=str, default='tcp://localhost:23456',
-                             help='Url used to set up distributed training')
-    distributed.add_argument('--group-name', type=str, default='group_name',
-                             required=False, help='Distributed group name')
-    distributed.add_argument('--dist-backend', default='nccl', type=str, choices={'nccl'},
-                             help='Distributed run backend')
-
-    return parser
+from configs import Config
 
 
 def reduce_tensor(tensor, num_gpus):
@@ -178,7 +85,7 @@ def reduce_tensor(tensor, num_gpus):
     return rt
 
 
-def init_distributed(args, world_size, rank, group_name):
+def init_distributed(dist_backend, dist_url, world_size, rank, group_name):
     assert torch.cuda.is_available(), "Distributed mode requires CUDA."
     print("Initializing Distributed")
 
@@ -187,7 +94,7 @@ def init_distributed(args, world_size, rank, group_name):
 
     # Initialize distributed communication
     dist.init_process_group(
-        backend=args.dist_backend, init_method=args.dist_url,
+        backend=dist_backend, init_method=dist_url,
         world_size=world_size, rank=rank, group_name=group_name)
 
     print("Done initializing distributed")
@@ -205,11 +112,11 @@ def save_checkpoint(model, epoch, config, optimizer, filepath):
 def save_sample(model_name, model, waveglow_path, tacotron2_path, phrase_path, filepath, sampling_rate):
     if phrase_path is None:
         return
+
     phrase = torch.load(phrase_path, map_location='cpu')
     if model_name == 'Tacotron2':
         if waveglow_path is None:
-            raise Exception(
-                "WaveGlow checkpoint path is missing, could not generate sample")
+            raise Exception("WaveGlow checkpoint path is missing, could not generate sample")
         with torch.no_grad():
             checkpoint = torch.load(waveglow_path, map_location='cpu')
             waveglow = models.get_model(
@@ -221,8 +128,7 @@ def save_sample(model_name, model, waveglow_path, tacotron2_path, phrase_path, f
             audio = waveglow.infer(mel, sigma=0.6)
     elif model_name == 'WaveGlow':
         if tacotron2_path is None:
-            raise Exception(
-                "Tacotron2 checkpoint path is missing, could not generate sample")
+            raise Exception("Tacotron2 checkpoint path is missing, could not generate sample")
         with torch.no_grad():
             checkpoint = torch.load(tacotron2_path, map_location='cpu')
             tacotron2 = models.get_model(
@@ -235,9 +141,13 @@ def save_sample(model_name, model, waveglow_path, tacotron2_path, phrase_path, f
     else:
         raise NotImplementedError(
             "unknown model requested: {}".format(model_name))
+
     audio = audio[0].numpy()
     audio = audio.astype('int16')
+    print('Audio:', audio)
+
     write_wav(filepath, sampling_rate, audio)
+
 
 # adapted from: https://discuss.pytorch.org/t/opinion-eval-should-be-a-context-manager/18998/3
 # Following snippet is licensed under MIT license
@@ -245,7 +155,7 @@ def save_sample(model_name, model, waveglow_path, tacotron2_path, phrase_path, f
 
 @contextmanager
 def evaluating(model):
-    '''Temporarily switch to evaluation mode.'''
+    """Temporarily switch to evaluation mode."""
     istrain = model.training
     try:
         model.eval()
@@ -255,9 +165,7 @@ def evaluating(model):
             model.train()
 
 
-def validate(model, criterion, valset, iteration, batch_size, world_size,
-             collate_fn, distributed_run, rank, batch_to_gpu):
-    # TODO: Fix redaundant params
+def validate(model, criterion, valset, batch_size, world_size, collate_fn, distributed_run, batch_to_gpu):
     """Handles all the validation scoring and printing"""
     with evaluating(model), torch.no_grad():
         val_sampler = DistributedSampler(valset) if distributed_run else None
@@ -285,8 +193,7 @@ def validate(model, criterion, valset, iteration, batch_size, world_size,
     return val_loss
 
 
-def adjust_learning_rate(epoch, optimizer, learning_rate,
-                         anneal_steps, anneal_factor):
+def adjust_learning_rate(epoch, optimizer, learning_rate, anneal_steps, anneal_factor):
 
     p = 0
     if anneal_steps is not None:
@@ -308,16 +215,11 @@ def adjust_learning_rate(epoch, optimizer, learning_rate,
 
 
 def main():
-    # Parse args
-    parser = argparse.ArgumentParser(description='PyTorch Tacotron 2 Training')
-    parser = parse_args(parser)
-    args, _ = parser.parse_known_args()
-
     LOGGER.set_model_name("Tacotron2_PyT")
     LOGGER.set_backends([
         dllg.StdOutBackend(log_file=None,
                            logging_scope=dllg.TRAIN_ITER_SCOPE, iteration_interval=1),
-        dllg.JsonBackend(log_file=args.log_file if args.rank == 0 else None,
+        dllg.JsonBackend(log_file=Config.log_file if args.rank == 0 else None,
                          logging_scope=dllg.TRAIN_ITER_SCOPE, iteration_interval=1)
     ])
 
@@ -340,36 +242,32 @@ def main():
                            metric_scope=dllg.EPOCH_SCOPE)
 
     log_hardware()
-
-    # Init params
-    checkpoint = None
-    start_epoch = 0
-
-    model_name = args.model_name
-    parser = models.parse_model_args(model_name, parser)
-    parser.parse_args()
-
-    args = parser.parse_args()
-
     log_args(args)
 
-    torch.backends.cudnn.enabled = args.cudnn_enabled
-    torch.backends.cudnn.benchmark = args.cudnn_benchmark
+    torch.backends.cudnn.enabled = Config.cudnn_enabled
+    torch.backends.cudnn.benchmark = Config.cudnn_benchmark
 
+    model_name = Config.model_name
     distributed_run = args.world_size > 1
-    if distributed_run:
-        init_distributed(args, args.world_size, args.rank, args.group_name)
 
+    if distributed_run:
+        init_distributed(dist_backend=Config.dist_backend,
+                         dist_url=Config.dist_url,
+                         world_size=args.world_size,
+                         rank=args.rank,
+                         group_name=Config.group_name)
 
     LOGGER.log(key=tags.RUN_START)
     run_start_time = time.time()
 
     # Restore training from checkpoint
-    if args.restore_from:
-        print('Restoring from {} checkpoint'.format(args.restore_from))
+    if Config.restore_from:
         # Restore model from checkpoint
-        checkpoint = torch.load(args.restore_from, map_location='cpu')
+        checkpoint = torch.load(Config.restore_from, map_location='cpu')
         start_epoch = checkpoint['epoch'] + 1
+
+        print('Restoring from {} checkpoint'.format(Config.restore_from))
+
         model_config = checkpoint['config']
         model = models.get_model(model_name, model_config, to_cuda=True)
 
@@ -382,16 +280,20 @@ def main():
 
         model.load_state_dict(model_dict)
     else:
-        model_config = models.get_model_config(model_name, args)
+        checkpoint = None
+        start_epoch = 0
+
+        model_config = models.get_model_config(model_name)
         model = models.get_model(model_name, model_config, to_cuda=True)
 
     # Distributed run
-    if not args.amp_run and distributed_run:
+    if not Config.amp_run and distributed_run:
         model = DDP(model)
 
     # Define Optimizer
-    optimizer = torch.optim.Adam(model.parameters(), lr=args.learning_rate,
-                                 weight_decay=args.weight_decay)
+    optimizer = torch.optim.Adam(model.parameters(),
+                                 lr=Config.learning_rate,
+                                 weight_decay=Config.weight_decay)
 
     # Restore optimizer state
     if checkpoint and 'optimizer_state_dict' in checkpoint:
@@ -399,7 +301,7 @@ def main():
         optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
 
     # FP16 option
-    if args.amp_run: # TODO: test if FP16 actually works
+    if Config.amp_run:  # TODO: test if FP16 actually works
         model, optimizer = amp.initialize(model, optimizer, opt_level="O1")
         if distributed_run:
             model = DDP(model)
@@ -414,7 +316,7 @@ def main():
     criterion = loss_functions.get_loss_function(model_name, sigma)
 
     # Set amount of frames per decoder step
-    try: # TODO: make it working with n > 1
+    try:  # TODO: make it working with n > 1
         n_frames_per_step = model_config['n_frames_per_step']
     except KeyError:
         n_frames_per_step = None
@@ -424,21 +326,23 @@ def main():
         model_name, n_frames_per_step)
 
     # Define training set
-    trainset = data_functions.get_data_loader(
-        model_name, args.training_files, args)
+    trainset = data_functions.get_data_loader(model_name=model_name, audiopaths_and_text=Config.training_files)
 
     # Define distribute sampler
     train_sampler = DistributedSampler(trainset) if distributed_run else None
 
     # Define train data loader
-    train_loader = DataLoader(trainset, num_workers=1, shuffle=False,
+    train_loader = DataLoader(trainset,
+                              num_workers=1,
+                              shuffle=False,
                               sampler=train_sampler,
-                              batch_size=args.batch_size, pin_memory=False,
-                              drop_last=True, collate_fn=collate_fn)
+                              batch_size=Config.batch_size,
+                              pin_memory=False,
+                              drop_last=True,
+                              collate_fn=collate_fn)
 
     # Define validation data loader
-    valset = data_functions.get_data_loader(
-        model_name, args.validation_files, args)
+    valset = data_functions.get_data_loader(model_name=model_name, audiopaths_and_text=Config.validation_files)
 
     # Batch to gpu function
     batch_to_gpu = data_functions.get_batch_to_gpu(model_name)
@@ -452,13 +356,21 @@ def main():
     LOGGER.log(key=tags.TRAIN_LOOP)
 
     # Initialize torch TensorBoard writer
-    tensorboard_writer = tensorboard.SummaryWriter(log_dir=os.path.join(args.tensorboard_log_dir, model_name))
+    # TODO: Think how to deal with restored checkpoints.
+    str_date = datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
+    tensorboard_log_dir = os.path.join(Config.tensorboard_log_dir, f"{str_date}_{model_name}")
+    tensorboard_writer = tensorboard.SummaryWriter(log_dir=tensorboard_log_dir)
+
+    # Add files with shell arguments and configs to tensorboard log directory.
+    shutil.copy2('configs/config.py', tensorboard_log_dir)
+    with open(os.path.join(tensorboard_log_dir, 'args.json'), 'w') as fl:
+        json.dump(vars(args), fl, indent=4)
 
     # Restore training from checkpoint logic
-    if start_epoch >= args.epochs:
-        print('Checkpoint epoch {} >= total epochs {}'.format(start_epoch, args.epochs))
+    if start_epoch >= Config.epochs:
+        print('Checkpoint epoch {} >= total epochs {}'.format(start_epoch, Config.epochs))
     else:
-        for epoch in range(start_epoch, args.epochs):
+        for epoch in range(start_epoch, Config.epochs):
             LOGGER.epoch_start()
             epoch_start_time = time.time()
             LOGGER.log(key=tags.TRAIN_EPOCH_START, value=epoch)
@@ -476,15 +388,15 @@ def main():
 
             for i, batch in enumerate(train_loader):
                 print("Batch: {}/{} epoch {}".format(i, len(train_loader), epoch))
+
                 LOGGER.iteration_start()
                 iter_start_time = time.time()
                 LOGGER.log(key=tags.TRAIN_ITER_START, value=i)
 
-
-                start = time.perf_counter()
-                adjust_learning_rate(epoch, optimizer, args.learning_rate,
-                                     args.anneal_steps, args.anneal_factor)
-
+                adjust_learning_rate(epoch, optimizer,
+                                     learning_rate=Config.learning_rate,
+                                     anneal_steps=Config.anneal_steps,
+                                     anneal_factor=Config.anneal_factor)
                 model.zero_grad()
 
                 x, y, num_items = batch_to_gpu(batch)
@@ -499,6 +411,7 @@ def main():
                 else:
                     reduced_loss = loss.item()
                     reduced_num_items = num_items.item()
+
                 if np.isnan(reduced_loss):
                     raise Exception("loss is NaN")
 
@@ -510,15 +423,15 @@ def main():
                 # accumulate number of items processed in this epoch
                 reduced_num_items_epoch += reduced_num_items
 
-                if args.amp_run:
+                if Config.amp_run:
                     with amp.scale_loss(loss, optimizer) as scaled_loss:
                         scaled_loss.backward()
-                    grad_norm = torch.nn.utils.clip_grad_norm_(
-                        amp.master_params(optimizer), args.grad_clip_thresh)
+                    # grad_norm = torch.nn.utils.clip_grad_norm_(
+                    #     amp.master_params(optimizer), args.grad_clip_thresh)
                 else:
                     loss.backward()
-                    grad_norm = torch.nn.utils.clip_grad_norm_(
-                        model.parameters(), args.grad_clip_thresh)
+                    # grad_norm = torch.nn.utils.clip_grad_norm_(
+                    #     model.parameters(), args.grad_clip_thresh)
 
                 optimizer.step()
 
@@ -570,26 +483,25 @@ def main():
 
             LOGGER.log(key=tags.EVAL_START, value=epoch)
 
-            reduced_val_loss = validate(model, criterion, valset, iteration,
-                                        args.batch_size, args.world_size, collate_fn,
-                                        distributed_run, args.rank, batch_to_gpu)
+            epoch_val_loss = validate(model, criterion, valset, Config.batch_size, args.world_size,
+                                      collate_fn, distributed_run, batch_to_gpu)
 
             # Add configs to tensorboard
-
             tensorboard_writer.add_scalar(tag='epoch_avg_loss/val',
-                                          scalar_value=reduced_val_loss,
+                                          scalar_value=epoch_val_loss,
                                           global_step=epoch)
 
             LOGGER.log(key=tags.EVAL_STOP, value=epoch)
 
-            if (epoch % args.epochs_per_checkpoint == 0) and args.rank == 0:
+            if (epoch % Config.epochs_per_checkpoint == 0) and args.rank == 0:
                 checkpoint_path = os.path.join(
-                    args.output_directory, "checkpoint_{}_{}".format(model_name, epoch))
+                    Config.output_directory, "checkpoint_{}_{}".format(model_name, epoch))
                 save_checkpoint(model, epoch, model_config, optimizer, checkpoint_path)
 
-                save_sample(model_name, model, args.waveglow_checkpoint,
-                            args.tacotron2_checkpoint, args.phrase_path,
-                            os.path.join(args.output_directory, "sample_{}_{}.wav".format(model_name, iteration)), args.sampling_rate)
+                save_sample(model_name, model, Config.waveglow_checkpoint,
+                            Config.tacotron2_checkpoint, Config.phrase_path,
+                            os.path.join(Config.output_directory, "sample_{}_{}.wav".format(model_name, iteration)),
+                            Config.sampling_rate)
 
             LOGGER.epoch_stop()
 

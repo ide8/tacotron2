@@ -99,12 +99,12 @@ if __name__ == '__main__':
     output_directory = '/workspace/training_data'
 
     data = [
-        # (
-        #     '/workspace/data/aws/dataset/linda_johnson',
-        #     0,
-        #     False
-        #     False
-        # ),
+        (
+             '/workspace/data/linda_johnson',
+             0,
+             False,
+             False
+        ),
         # (
         #     '/workspace/data/gcp/samantha_default',
         #     1,
