@@ -116,8 +116,8 @@ class Config:
 
     # Optimization params
     use_saved_learning_rate = False
-    learning_rate = 0.001                         # Learing rate
-    weight_decay = 0.00001                        # Weight decay
+    learning_rate = 1e-3                          # Learing rate
+    weight_decay = 1e-6                           # Weight decay
     grad_clip_thresh = 1.0                        # Clip threshold for gradients
     batch_size = 64                               # Batch size per GPU
     grad_clip = 5.0                               # Enables gradient clipping and sets maximum gradient norm value
