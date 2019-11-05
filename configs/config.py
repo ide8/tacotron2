@@ -97,8 +97,10 @@ class Config:
     anneal_steps = None                           # Epochs after which decrease learning rate
     anneal_factor = 0.1                           # Factor for annealing learning rate
 
-    tacotron2_checkpoint = None                   # DON'T USE: Path to pre-trained Tacotron2 checkpoint for sample generation
-    waveglow_checkpoint = None                    # DON'T USE: Path to pre-trained WaveGlow checkpoint for sample generation
+    tacotron2_checkpoint = \
+        "/workspace/output/t2_fp32_torch"         # Path to pre-trained Tacotron2 checkpoint for sample generation
+    waveglow_checkpoint = \
+        "/workspace/output/wg_fp32_torch"         # Path to pre-trained WaveGlow checkpoint for sample generation
 
     restore_from = None                           # Checkpoint path to restore from
     tensorboard_log_dir = "/workspace/logs"       # TensorBoard logs save directory location.
@@ -123,10 +125,13 @@ class Config:
     # Dataset
     load_mel_from_dist = False                    # Loads mel spectrograms from disk instead of computing them on the fly
     text_cleaners = ['english_cleaners']          # Type of text cleaners for input text
-    training_files = "/workspace/training_data/train.txt"    # Path to training filelist
-    validation_files = "/workspace/training_data/val.txt"    # Path to validation filelist
+    training_files = \
+        "/workspace/training_data/train.txt"      # Path to training filelist
+    validation_files = \
+        "/workspace/training_data/val.txt"        # Path to validation filelist
 
     # Distributed
     dist_url = 'tcp://localhost:23456'            # Url used to set up distributed training
     group_name = "group_name"                     # Distributed group name
     dist_backend = "nccl"                         # Distributed run backend
+
