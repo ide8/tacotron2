@@ -4,4 +4,5 @@ inflect
 librosa
 scipy
 Unidecode
-pytorch-transformers
+tensorboard
+torch==1.1.0
