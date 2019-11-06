@@ -53,7 +53,6 @@ from dllogger.logger import LOGGER
 import dllogger.logger as dllg
 from dllogger import tags
 from dllogger.autologging import log_hardware, log_args
-from scipy.io.wavfile import write as write_wav
 
 from apex import amp
 amp.lists.functional_overrides.FP32_FUNCS.remove('softmax')
@@ -73,7 +72,7 @@ args = parser.parse_args()
 shutil.copyfile(os.path.join('configs', 'experiments', args.exp + '.py'), os.path.join('configs', 'config.py'))
 
 
-from configs import Config
+from configs.config import Config
 
 
 def reduce_tensor(tensor, num_gpus):
@@ -107,44 +106,49 @@ def save_checkpoint(model, epoch, config, optimizer, filepath):
                 'optimizer_state_dict': optimizer.state_dict()}, filepath)
 
 
-def save_sample(model_name, model, waveglow_path, tacotron2_path, phrase_path, filepath, sampling_rate):
-    if phrase_path is None:
-        return
+def save_sample(model_name, model, waveglow_path, tacotron2_path, valset, collate_fn, distributed_run, batch_size):
+    with evaluating(model), torch.no_grad():
+        val_sampler = DistributedSampler(valset) if distributed_run else None
+        val_loader = DataLoader(valset, num_workers=1, shuffle=False, sampler=val_sampler,
+                                batch_size=batch_size, pin_memory=False, collate_fn=collate_fn)
 
-    phrase = torch.load(phrase_path, map_location='cpu')
-    if model_name == 'Tacotron2':
-        if waveglow_path is None:
-            raise Exception("WaveGlow checkpoint path is missing, could not generate sample")
-        with torch.no_grad():
-            checkpoint = torch.load(waveglow_path, map_location='cpu')
-            waveglow = models.get_model(
-                'WaveGlow', checkpoint['config'], to_cuda=False)
-            waveglow.eval()
-            model.eval()
-            mel = model.infer(phrase.cuda())[0].cpu()
-            model.train()
-            audio = waveglow.infer(mel, sigma=0.6)
-    elif model_name == 'WaveGlow':
-        if tacotron2_path is None:
-            raise Exception("Tacotron2 checkpoint path is missing, could not generate sample")
-        with torch.no_grad():
-            checkpoint = torch.load(tacotron2_path, map_location='cpu')
-            tacotron2 = models.get_model(
-                'Tacotron2', checkpoint['config'], to_cuda=False)
-            tacotron2.eval()
-            mel = tacotron2.infer(phrase)[0].cuda()
-            model.eval()
-            audio = model.infer(mel, sigma=0.6).cpu()
-            model.train()
-    else:
-        raise NotImplementedError(
-            "unknown model requested: {}".format(model_name))
+        batch_to_gpu = data_functions.get_batch_to_gpu(model_name)
 
-    audio = audio[0].numpy()
-    audio = audio.astype('int16')
-    print('Audio:', audio)
+        for i, batch in enumerate(val_loader):
+            x, y, len_x = batch_to_gpu(batch)
 
-    write_wav(filepath, sampling_rate, audio)
+            if model_name == 'Tacotron2':
+                assert waveglow_path is not None, "WaveGlow checkpoint path is missing, could not generate sample"
+
+                mel = model(x)
+
+                checkpoint = torch.load(waveglow_path, map_location='cpu')
+                waveglow = models.get_model('WaveGlow', checkpoint['config'], to_cuda=False)
+                waveglow.eval()
+
+                audio = waveglow.infer(mel, sigma=0.6)
+
+            # elif model_name == 'WaveGlow':
+            #     if tacotron2_path is None:
+            #         raise Exception("Tacotron2 checkpoint path is missing, could not generate sample")
+            #
+            #     with torch.no_grad():
+            #         checkpoint = torch.load(tacotron2_path, map_location='cpu')
+            #         tacotron2 = models.get_model(
+            #             'Tacotron2', checkpoint['config'], to_cuda=False)
+            #         tacotron2.eval()
+            #         mel = tacotron2.infer(phrase)[0].cuda()
+            #         model.eval()
+            #         audio = model.infer(mel, sigma=0.6).cpu()
+            #         model.train()
+
+            else:
+                raise NotImplementedError(
+                    "unknown model requested: {}".format(model_name))
+
+            audio = audio[0].numpy()
+            audio = audio.astype('int16')
+            print('Audio:', audio)
 
 
 # adapted from: https://discuss.pytorch.org/t/opinion-eval-should-be-a-context-manager/18998/3
@@ -173,10 +177,20 @@ def validate(model, criterion, valset, batch_size, world_size, collate_fn, distr
                                 collate_fn=collate_fn)
         val_loss = 0.0
 
+        # checkpoint = torch.load(Config.waveglow_checkpoint, map_location='cpu')
+        # waveglow = models.get_model('WaveGlow', checkpoint['config'], to_cuda=False)
+        # waveglow.eval()
+
         for i, batch in enumerate(val_loader):
             x, y, len_x = batch_to_gpu(batch)
+
             y_pred = model(x)
+
+            # audio = waveglow.infer(y_pred[0].cpu(), sigma=0.6)
+            # print('Audio:', audio)
+
             loss = criterion(y_pred, y)
+
             if distributed_run:
                 reduced_val_loss = reduce_tensor(loss.data, world_size).item()
             else:
@@ -496,10 +510,14 @@ def main():
                     Config.output_directory, "checkpoint_{}_{}".format(model_name, epoch))
                 save_checkpoint(model, epoch, model_config, optimizer, checkpoint_path)
 
-                save_sample(model_name, model, Config.waveglow_checkpoint,
-                            Config.tacotron2_checkpoint, Config.phrase_path,
-                            os.path.join(Config.output_directory, "sample_{}_{}.wav".format(model_name, iteration)),
-                            Config.sampling_rate)
+                # save_sample(model_name,
+                #             model,
+                #             Config.waveglow_checkpoint,
+                #             Config.tacotron2_checkpoint,
+                #             valset,
+                #             collate_fn,
+                #             distributed_run,
+                #             Config.batch_size)
 
             LOGGER.epoch_stop()
 
