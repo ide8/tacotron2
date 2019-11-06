@@ -61,7 +61,7 @@ class TextMelLoader(torch.utils.data.Dataset):
         text = self.get_text(text)
         mel = self.get_mel(audiopath)
 
-        return (text, mel, len_text, speaker_id)
+        return text, mel, len_text, speaker_id
 
     def get_mel(self, filename):
         if not self.load_mel_from_disk:
@@ -150,6 +150,7 @@ class TextMelCollate():
         return text_padded, input_lengths, mel_padded, gate_padded, \
             output_lengths, len_x, speaker_ids
 
+
 def batch_to_gpu(batch):
     text_padded, input_lengths, mel_padded, gate_padded, \
         output_lengths, len_x, speaker_ids = batch
@@ -163,4 +164,5 @@ def batch_to_gpu(batch):
     x = (text_padded, input_lengths, mel_padded, max_len, output_lengths, speaker_ids)
     y = (mel_padded, gate_padded)
     len_x = torch.sum(output_lengths)
-    return (x, y, len_x)
+
+    return x, y, len_x

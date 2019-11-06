@@ -49,28 +49,13 @@ def get_collate_function(model_name, n_frames_per_step):
 
 def get_data_loader(model_name, audiopaths_and_text):
     if model_name == 'Tacotron2':
-        data_loader = TextMelLoader(audiopaths_and_text=audiopaths_and_text,
-                                    text_cleaners=Config.text_cleaners,
-                                    load_mel_from_disk=Config.load_mel_from_dist,
-                                    filter_length=Config.filter_length,
-                                    max_wav_value=Config.max_wav_value,
-                                    sampling_rate=Config.sampling_rate,
-                                    hop_length=Config.hop_length,
-                                    win_length=Config.win_length,
-                                    n_mel_channels=Config.n_mel_channels,
-                                    mel_fmax=Config.mel_fmax,
-                                    mel_fmin=Config.mel_fmin)
+        data_loader = TextMelLoader(audiopaths_and_text, Config.text_cleaners, Config.load_mel_from_dist,
+                                    Config.max_wav_value, Config.sampling_rate, Config.filter_length, Config.hop_length,
+                                    Config.win_length, Config.n_mel_channels, Config.mel_fmin, Config.mel_fmax)
     elif model_name == 'WaveGlow':
-        data_loader = MelAudioLoader(audiopaths_and_text=audiopaths_and_text,
-                                     filter_length=Config.filter_length,
-                                     hop_length=Config.hop_length,
-                                     win_length=Config.win_length,
-                                     n_mel_channels=Config.n_mel_channels,
-                                     sampling_rate=Config.sampling_rate,
-                                     mel_fmin=Config.mel_fmin,
-                                     mel_fmax=Config.mel_fmax,
-                                     segment_length=Config.segment_length,
-                                     max_wav_value=Config.max_wav_value)
+        data_loader = MelAudioLoader(audiopaths_and_text, Config.filter_length, Config.hop_length, Config.win_length,
+                                     Config.n_mel_channels, Config.sampling_rate, Config.mel_fmin, Config.mel_fmax,
+                                     Config.segment_length, Config.max_wav_value)
     else:
         raise NotImplementedError(
             "unknown data loader requested: {}".format(model_name))

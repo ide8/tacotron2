@@ -73,7 +73,7 @@ class MelAudioLoader(torch.utils.data.Dataset):
         melspec = self.stft.mel_spectrogram(audio_norm)
         melspec = melspec.squeeze(0)
 
-        return (melspec, audio, len(audio))
+        return melspec, audio, len(audio)
 
     def __getitem__(self, index):
         return self.get_mel_audio_pair(self.audiopaths_and_text[index][0])
@@ -87,4 +87,5 @@ def batch_to_gpu(batch):
     x = to_gpu(x).float()
     y = to_gpu(y).float()
     len_y = to_gpu(torch.sum(len_y))
-    return ((x, y), y, len_y)
+
+    return (x, y), y, len_y
