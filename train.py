@@ -120,35 +120,34 @@ def save_sample(model_name, model, waveglow_path, tacotron2_path, valset, collat
             if model_name == 'Tacotron2':
                 assert waveglow_path is not None, "WaveGlow checkpoint path is missing, could not generate sample"
 
-                mel = model(x)
-
                 checkpoint = torch.load(waveglow_path, map_location='cpu')
                 waveglow = models.get_model('WaveGlow', checkpoint['config'], to_cuda=False)
                 waveglow.eval()
 
+                mel = model(x)[0].cpu()
                 audio = waveglow.infer(mel, sigma=0.6)
 
-            # elif model_name == 'WaveGlow':
-            #     if tacotron2_path is None:
-            #         raise Exception("Tacotron2 checkpoint path is missing, could not generate sample")
-            #
-            #     with torch.no_grad():
-            #         checkpoint = torch.load(tacotron2_path, map_location='cpu')
-            #         tacotron2 = models.get_model(
-            #             'Tacotron2', checkpoint['config'], to_cuda=False)
-            #         tacotron2.eval()
-            #         mel = tacotron2.infer(phrase)[0].cuda()
-            #         model.eval()
-            #         audio = model.infer(mel, sigma=0.6).cpu()
-            #         model.train()
+            elif model_name == 'WaveGlow':
+                assert tacotron2_path is not None, "Tacotron2 checkpoint path is missing, could not generate sample"
+
+                checkpoint = torch.load(tacotron2_path, map_location='cpu')
+                tacotron2 = models.get_model('Tacotron2', checkpoint['config'], to_cuda=False)
+                tacotron2.eval()
+
+                mel = tacotron2.infer(x)[0].cuda()
+                audio = model(mel)
 
             else:
-                raise NotImplementedError(
-                    "unknown model requested: {}".format(model_name))
+                raise NotImplementedError("Unknown model requested: {}".format(model_name))
+
+            print("Full Audio:", audio)
 
             audio = audio[0].numpy()
             audio = audio.astype('int16')
+
             print('Audio:', audio)
+
+            yield audio
 
 
 # adapted from: https://discuss.pytorch.org/t/opinion-eval-should-be-a-context-manager/18998/3
@@ -171,24 +170,14 @@ def validate(model, criterion, valset, batch_size, world_size, collate_fn, distr
     """Handles all the validation scoring and printing"""
     with evaluating(model), torch.no_grad():
         val_sampler = DistributedSampler(valset) if distributed_run else None
-        val_loader = DataLoader(valset, num_workers=1, shuffle=False,
-                                sampler=val_sampler,
-                                batch_size=batch_size, pin_memory=False,
-                                collate_fn=collate_fn)
+        val_loader = DataLoader(valset, num_workers=1, shuffle=False, sampler=val_sampler,
+                                batch_size=batch_size, pin_memory=False, collate_fn=collate_fn)
         val_loss = 0.0
-
-        # checkpoint = torch.load(Config.waveglow_checkpoint, map_location='cpu')
-        # waveglow = models.get_model('WaveGlow', checkpoint['config'], to_cuda=False)
-        # waveglow.eval()
 
         for i, batch in enumerate(val_loader):
             x, y, len_x = batch_to_gpu(batch)
 
             y_pred = model(x)
-
-            # audio = waveglow.infer(y_pred[0].cpu(), sigma=0.6)
-            # print('Audio:', audio)
-
             loss = criterion(y_pred, y)
 
             if distributed_run:
@@ -510,14 +499,15 @@ def main():
                     Config.output_directory, "checkpoint_{}_{}".format(model_name, epoch))
                 save_checkpoint(model, epoch, model_config, optimizer, checkpoint_path)
 
-                # save_sample(model_name,
-                #             model,
-                #             Config.waveglow_checkpoint,
-                #             Config.tacotron2_checkpoint,
-                #             valset,
-                #             collate_fn,
-                #             distributed_run,
-                #             Config.batch_size)
+                # Save test audio files to tensorboard.
+                for i, sample in enumerate(
+                        save_sample(model_name, model, Config.waveglow_checkpoint, Config.tacotron2_checkpoint,
+                                    valset, collate_fn, distributed_run, Config.batch_size)
+                ):
+                    tensorboard_writer.add_audio(tag=f"sample_{model_name}_{epoch}",
+                                                 snd_tensor=sample,
+                                                 sample_rate=Config.sampling_rate)
+                    break
 
             LOGGER.epoch_stop()
 

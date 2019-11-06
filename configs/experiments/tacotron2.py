@@ -134,4 +134,3 @@ class Config:
     dist_url = 'tcp://localhost:23456'            # Url used to set up distributed training
     group_name = "group_name"                     # Distributed group name
     dist_backend = "nccl"                         # Distributed run backend
-
