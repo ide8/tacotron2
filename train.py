@@ -97,6 +97,28 @@ def init_distributed(dist_backend, dist_url, world_size, rank, group_name):
     print("Done initializing distributed")
 
 
+def restore_checkpoint(restore_path, model_name):
+    # Restore model from checkpoint
+    checkpoint = torch.load(restore_path, map_location='cpu')
+    start_epoch = checkpoint['epoch'] + 1
+
+    print('Restoring from {} checkpoint'.format(restore_path))
+
+    model_config = checkpoint['config']
+    model = models.get_model(model_name, model_config, to_cuda=True)
+
+    # Unwrap distributed
+    model_dict = {}
+    for key, value in checkpoint['state_dict'].items():
+        new_key = key.replace('module.1.', '')
+        new_key = new_key.replace('module.', '')
+        model_dict[new_key] = value
+
+    model.load_state_dict(model_dict)
+
+    return model, model_config, checkpoint, start_epoch
+
+
 def save_checkpoint(model, epoch, config, optimizer, filepath):
     print("Saving model and optimizer state at epoch {} to {}".format(
         epoch, filepath))
@@ -106,48 +128,39 @@ def save_checkpoint(model, epoch, config, optimizer, filepath):
                 'optimizer_state_dict': optimizer.state_dict()}, filepath)
 
 
-def save_sample(model_name, model, waveglow_path, tacotron2_path, valset, collate_fn, distributed_run, batch_size):
-    with evaluating(model), torch.no_grad():
-        val_sampler = DistributedSampler(valset) if distributed_run else None
-        val_loader = DataLoader(valset, num_workers=1, shuffle=False, sampler=val_sampler,
-                                batch_size=batch_size, pin_memory=False, collate_fn=collate_fn)
+def save_sample(model_name, model, tacotron2_path, waveglow_path, phrases):
+    from tacotron2.text import text_to_sequence
+    pipeline = []
 
-        batch_to_gpu = data_functions.get_batch_to_gpu(model_name)
+    if model_name == 'Tacotron2':
+        assert waveglow_path is not None, 'WaveGlow checkpoint path is missing, could not generate sample'
 
-        for i, batch in enumerate(val_loader):
-            x, y, len_x = batch_to_gpu(batch)
+        wg, _, _, _ = restore_checkpoint(waveglow_path, 'WaveGlow')
 
-            if model_name == 'Tacotron2':
-                assert waveglow_path is not None, "WaveGlow checkpoint path is missing, could not generate sample"
+        pipeline.append(model)
+        pipeline.append(wg)
+    elif model_name == 'WaveGlow':
+        assert tacotron2_path is not None, 'Tacotron2 checkpoint path is missing, could not generate sample'
 
-                checkpoint = torch.load(waveglow_path, map_location='cpu')
-                waveglow = models.get_model('WaveGlow', checkpoint['config'], to_cuda=False)
-                waveglow.eval()
+        t2, _, _, _ = restore_checkpoint(tacotron2_path, 'Tacotron2')
 
-                mel = model(x)[0].cpu()
-                audio = waveglow.infer(mel, sigma=0.6)
+        pipeline.append(t2)
+        pipeline.append(model)
+    else:
+        raise NotImplementedError('Unknown model requested: {}'.format(model_name))
 
-            elif model_name == 'WaveGlow':
-                assert tacotron2_path is not None, "Tacotron2 checkpoint path is missing, could not generate sample"
+    with evaluating(pipeline[0]), evaluating(pipeline[1]), torch.no_grad():
+        for speaker_id in phrases['speaker_ids']:
+            for text in phrases['texts']:
+                inputs = np.array(text_to_sequence(text, ['english_cleaners']))[None, :]
+                inputs = torch.from_numpy(inputs).to(device='cuda', dtype=torch.int64)
+                s_id = torch.IntTensor([speaker_id]).cuda().long()
+                _, mel, _, _ = pipeline[0].infer(inputs, s_id)
+                audio = pipeline[1].infer(mel)
 
-                checkpoint = torch.load(tacotron2_path, map_location='cpu')
-                tacotron2 = models.get_model('Tacotron2', checkpoint['config'], to_cuda=False)
-                tacotron2.eval()
+                audio_numpy = audio[0].data.cpu().numpy()
 
-                mel = tacotron2.infer(x)[0].cuda()
-                audio = model(mel)
-
-            else:
-                raise NotImplementedError("Unknown model requested: {}".format(model_name))
-
-            print("Full Audio:", audio)
-
-            audio = audio[0].numpy()
-            audio = audio.astype('int16')
-
-            print('Audio:', audio)
-
-            yield audio
+                yield audio_numpy
 
 
 # adapted from: https://discuss.pytorch.org/t/opinion-eval-should-be-a-context-manager/18998/3
@@ -215,6 +228,8 @@ def adjust_learning_rate(epoch, optimizer, learning_rate, anneal_steps, anneal_f
         param_group['lr'] = lr
 
 
+
+
 def main():
     LOGGER.set_model_name("Tacotron2_PyT")
     LOGGER.set_backends([
@@ -263,23 +278,7 @@ def main():
 
     # Restore training from checkpoint
     if Config.restore_from:
-        # Restore model from checkpoint
-        checkpoint = torch.load(Config.restore_from, map_location='cpu')
-        start_epoch = checkpoint['epoch'] + 1
-
-        print('Restoring from {} checkpoint'.format(Config.restore_from))
-
-        model_config = checkpoint['config']
-        model = models.get_model(model_name, model_config, to_cuda=True)
-
-        # Unwrap distributed
-        model_dict = {}
-        for key, value in checkpoint['state_dict'].items():
-            new_key = key.replace('module.1.', '')
-            new_key = new_key.replace('module.', '')
-            model_dict[new_key] = value
-
-        model.load_state_dict(model_dict)
+        model, model_config, checkpoint, start_epoch = restore_checkpoint(Config.restore_from, model_name)
     else:
         checkpoint = None
         start_epoch = 0
@@ -359,7 +358,7 @@ def main():
     # Initialize torch TensorBoard writer
     # TODO: Think how to deal with restored checkpoints.
     str_date = datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
-    tensorboard_log_dir = os.path.join(Config.tensorboard_log_dir, f"{str_date}_{model_name}")
+    tensorboard_log_dir = os.path.join(Config.tensorboard_log_dir, '{}_{}'.format(str_date, model_name))
     tensorboard_writer = tensorboard.SummaryWriter(log_dir=tensorboard_log_dir)
 
     # Add files with shell arguments and configs to tensorboard log directory.
@@ -496,19 +495,19 @@ def main():
 
             if (epoch % Config.epochs_per_checkpoint == 0) and args.rank == 0:
                 checkpoint_path = os.path.join(
-                    Config.output_directory, "checkpoint_{}_{}".format(model_name, epoch))
+                    Config.output_directory, 'checkpoint_{}_{}'.format(model_name, epoch))
                 save_checkpoint(model, epoch, model_config, optimizer, checkpoint_path)
 
-                # Save test audio files to tensorboard.
-                for i, sample in enumerate(
-                        save_sample(model_name, model, Config.waveglow_checkpoint, Config.tacotron2_checkpoint,
-                                    valset, collate_fn, distributed_run, Config.batch_size)
-                ):
-                    tensorboard_writer.add_audio(tag=f"sample_{model_name}_{epoch}",
+                # Save test audio files to tensorboard
+                for i, sample in enumerate(save_sample(model_name,
+                                                       model,
+                                                       Config.tacotron2_checkpoint,
+                                                       Config.waveglow_checkpoint,
+                                                       Config.phrases)):
+
+                    tensorboard_writer.add_audio(tag='epoch_{}/sample_{}'.format(epoch, i),
                                                  snd_tensor=sample,
                                                  sample_rate=Config.sampling_rate)
-                    break
-
             LOGGER.epoch_stop()
 
     run_stop_time = time.time()

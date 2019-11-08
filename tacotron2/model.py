@@ -802,13 +802,6 @@ class Tacotron2(nn.Module):
         # Define output tokens:
         outputs = []
 
-        # print('Inputs:', inputs.shape)
-        # print('Input lengths:', input_lengths.shape)
-        # print('Targets:', targets.shape)
-        # print('Max len:', max_len)
-        # print('Output lengths:', output_lengths.shape)
-        # print('Speaker ids:', speaker_ids.shape)
-
         # Extract symbols embedding
         embedded_inputs = self.symbols_embedding(inputs).transpose(1, 2)
         # Get symbols encoder outputs
@@ -877,8 +870,6 @@ class Tacotron2(nn.Module):
 
         # Merge embeddings
         merged_outputs = torch.cat(outputs, -1)
-
-        print('merged_outputs', merged_outputs.shape)
 
         # Decode
         mel_outputs, gate_outputs, alignments = self.decoder.infer(
