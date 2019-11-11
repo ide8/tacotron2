@@ -100,7 +100,7 @@ class Config:
     restore_from = '/workspace/output/new_hope'                             # Checkpoint path to restore from
 
     # Training params
-    epochs = 553                                  # Number of total epochs to run
+    epochs = 1910                                 # Number of total epochs to run
     epochs_per_checkpoint = 1                     # Number of epochs per checkpoint
     seed = 1234                                   # Seed for PyTorch random number generators
     dynamic_loss_scaling = True                   # Enable dynamic loss scaling

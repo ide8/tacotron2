@@ -58,6 +58,8 @@ from apex import amp
 amp.lists.functional_overrides.FP32_FUNCS.remove('softmax')
 amp.lists.functional_overrides.FP16_FUNCS.append('softmax')
 
+from tacotron2.text import text_to_sequence
+
 
 parser = argparse.ArgumentParser(description='PyTorch Tacotron 2 Training')
 parser.add_argument('--exp', type=str, default=None, required=True, help='Name of an experiment for configs setting.')
@@ -128,33 +130,31 @@ def save_checkpoint(model, epoch, config, optimizer, filepath):
                 'optimizer_state_dict': optimizer.state_dict()}, filepath)
 
 
-def save_sample(model_name, model, tacotron2_path, waveglow_path, phrases):
-    from tacotron2.text import text_to_sequence
-    pipeline = []
-
+def save_sample(model_name, model_path, tacotron2_path, waveglow_path, phrases):
     if model_name == 'Tacotron2':
         assert waveglow_path is not None, 'WaveGlow checkpoint path is missing, could not generate sample'
+        tacotron2_path = model_path
 
-        wg, _, _, _ = restore_checkpoint(waveglow_path, 'WaveGlow')
-
-        pipeline.append(model)
-        pipeline.append(wg)
     elif model_name == 'WaveGlow':
         assert tacotron2_path is not None, 'Tacotron2 checkpoint path is missing, could not generate sample'
+        waveglow_path = model_path
 
-        t2, _, _, _ = restore_checkpoint(tacotron2_path, 'Tacotron2')
-
-        pipeline.append(t2)
-        pipeline.append(model)
     else:
         raise NotImplementedError('Unknown model requested: {}'.format(model_name))
+
+    t2, _, _, _ = restore_checkpoint(tacotron2_path, 'Tacotron2')
+    wg, _, _, _ = restore_checkpoint(waveglow_path, 'WaveGlow')
+
+    pipeline = [t2, wg]
 
     with evaluating(pipeline[0]), evaluating(pipeline[1]), torch.no_grad():
         for speaker_id in phrases['speaker_ids']:
             for text in phrases['texts']:
                 inputs = np.array(text_to_sequence(text, ['english_cleaners']))[None, :]
                 inputs = torch.from_numpy(inputs).to(device='cuda', dtype=torch.int64)
+
                 s_id = torch.IntTensor([speaker_id]).cuda().long()
+
                 _, mel, _, _ = pipeline[0].infer(inputs, s_id)
                 audio = pipeline[1].infer(mel)
 
@@ -278,8 +278,7 @@ def main():
     if Config.restore_from:
         model, model_config, checkpoint, start_epoch = restore_checkpoint(Config.restore_from, model_name)
     else:
-        checkpoint = None
-        start_epoch = 0
+        checkpoint, start_epoch = None, 0
 
         model_config = models.get_model_config(model_name)
         model = models.get_model(model_name, model_config, to_cuda=True)
@@ -319,14 +318,9 @@ def main():
     except KeyError:
         n_frames_per_step = None
 
-    # Define collate function for batch
-    collate_fn = data_functions.get_collate_function(
-        model_name, n_frames_per_step)
+    collate_fn = data_functions.get_collate_function(model_name, n_frames_per_step)
 
-    # Define training set
     trainset = data_functions.get_data_loader(model_name=model_name, audiopaths_and_text=Config.training_files)
-
-    # Define distribute sampler
     train_sampler = DistributedSampler(trainset) if distributed_run else None
 
     # Define train data loader
@@ -339,10 +333,7 @@ def main():
                               drop_last=True,
                               collate_fn=collate_fn)
 
-    # Define validation data loader
     valset = data_functions.get_data_loader(model_name=model_name, audiopaths_and_text=Config.validation_files)
-
-    # Batch to gpu function
     batch_to_gpu = data_functions.get_batch_to_gpu(model_name)
 
     # Iteration inside of the epoch
@@ -354,7 +345,6 @@ def main():
     LOGGER.log(key=tags.TRAIN_LOOP)
 
     # Save logs
-    str_date = datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
     tensorboard_writer = tensorboard.SummaryWriter(log_dir=main_directory)
 
     shutil.copy2('configs/config.py', main_directory)
@@ -478,13 +468,11 @@ def main():
 
             if (epoch % Config.epochs_per_checkpoint == 0) and args.rank == 0:
                 checkpoint_path = os.path.join(main_directory, 'checkpoint_{}'.format(epoch))
-
-
                 save_checkpoint(model, epoch, model_config, optimizer, checkpoint_path)
 
                 # Save test audio files to tensorboard
                 for i, sample in enumerate(save_sample(model_name,
-                                                       model,
+                                                       checkpoint_path,
                                                        Config.tacotron2_checkpoint,
                                                        Config.waveglow_checkpoint,
                                                        Config.phrases)):
