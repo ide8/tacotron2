@@ -10,7 +10,9 @@ from shutil import copyfile
 from scipy.io import wavfile
 from multiprocessing import Pool
 
+# noinspection PyUnresolvedReferences
 from data_pipeline import CODE_PATH, DATA_CONFIG, OUTPUT_DIRECTORY, SR, TOP_DB
+
 from tacotron2.text import text_to_sequence
 
 sys.path.append(CODE_PATH)
@@ -107,6 +109,7 @@ def process(path, output_directory, speaker_name, speaker_id, process_audio=True
 
     return files_to_process
 
+
 # Cleaning mapper
 def cleaning_mapper(job):
     fin, fint, fout, process_audio = job
@@ -117,7 +120,7 @@ def cleaning_mapper(job):
 
         wavfile.write(fint, SR, data)
 
-        command = "ffmpeg -y -i {} -acodec pcm_s16le -ac 1 -ar {} {}".format(fint, SR, fout)
+        command = 'ffmpeg -y -i {} -acodec pcm_s16le -ac 1 -ar {} {}'.format(fint, SR, fout)
         os.system(command)
     else:
         copyfile(fin, fout)

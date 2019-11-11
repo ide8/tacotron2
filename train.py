@@ -60,7 +60,7 @@ amp.lists.functional_overrides.FP16_FUNCS.append('softmax')
 
 
 parser = argparse.ArgumentParser(description='PyTorch Tacotron 2 Training')
-parser.add_argument('--exp', type=str, default=None, required=True, help="Name of an experiment for configs setting.")
+parser.add_argument('--exp', type=str, default=None, required=True, help='Name of an experiment for configs setting.')
 
 distributed = parser.add_argument_group('distributed setup')
 distributed.add_argument('--rank', default=0, type=int,
@@ -83,8 +83,8 @@ def reduce_tensor(tensor, num_gpus):
 
 
 def init_distributed(dist_backend, dist_url, world_size, rank, group_name):
-    assert torch.cuda.is_available(), "Distributed mode requires CUDA."
-    print("Initializing Distributed")
+    assert torch.cuda.is_available(), 'Distributed mode requires CUDA.'
+    print('Initializing Distributed')
 
     # Set cuda device so everything is done on the right GPU.
     torch.cuda.set_device(rank % torch.cuda.device_count())
@@ -94,7 +94,7 @@ def init_distributed(dist_backend, dist_url, world_size, rank, group_name):
         backend=dist_backend, init_method=dist_url,
         world_size=world_size, rank=rank, group_name=group_name)
 
-    print("Done initializing distributed")
+    print('Done initializing distributed')
 
 
 def restore_checkpoint(restore_path, model_name):
@@ -120,7 +120,7 @@ def restore_checkpoint(restore_path, model_name):
 
 
 def save_checkpoint(model, epoch, config, optimizer, filepath):
-    print("Saving model and optimizer state at epoch {} to {}".format(
+    print('Saving model and optimizer state at epoch {} to {}'.format(
         epoch, filepath))
     torch.save({'epoch': epoch,
                 'config': config,
@@ -202,7 +202,7 @@ def validate(model, criterion, valset, batch_size, world_size, collate_fn, distr
 
         val_loss = val_loss / (i + 1)
 
-    LOGGER.log(key="val_iter_loss", value=val_loss)
+    LOGGER.log(key='val_iter_loss', value=val_loss)
 
     return val_loss
 
@@ -221,41 +221,39 @@ def adjust_learning_rate(epoch, optimizer, learning_rate, anneal_steps, anneal_f
         lr = learning_rate*(anneal_factor ** p)
 
     if optimizer.param_groups[0]['lr'] != lr:
-        LOGGER.log_event("learning_rate changed",
-                         value=str(optimizer.param_groups[0]['lr']) + " -> " + str(lr))
+        LOGGER.log_event('learning_rate changed',
+                         value=str(optimizer.param_groups[0]['lr']) + ' -> ' + str(lr))
 
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
 
 
-
-
 def main():
-    LOGGER.set_model_name("Tacotron2_PyT")
+    run_start_time = time.time()
+    str_date, str_time = str(np.datetime64(int(run_start_time), 's')).replace(':', '-').split('T')
+
+    main_directory = os.path.join(Config.output_directory, args.exp, str_date, str_time)
+
+    if not os.path.exists(main_directory):
+        os.makedirs(main_directory)
+
+    LOGGER.set_model_name('Tacotron2_PyT')
     LOGGER.set_backends([
         dllg.StdOutBackend(log_file=None,
                            logging_scope=dllg.TRAIN_ITER_SCOPE, iteration_interval=1),
-        dllg.JsonBackend(log_file=Config.log_file if args.rank == 0 else None,
+        dllg.JsonBackend(log_file=os.path.join(main_directory, Config.log_file) if args.rank == 0 else None,
                          logging_scope=dllg.TRAIN_ITER_SCOPE, iteration_interval=1)
     ])
 
-    LOGGER.timed_block_start("run")
-    LOGGER.register_metric(tags.TRAIN_ITERATION_LOSS,
-                           metric_scope=dllg.TRAIN_ITER_SCOPE)
-    LOGGER.register_metric("iter_time",
-                           metric_scope=dllg.TRAIN_ITER_SCOPE)
-    LOGGER.register_metric("epoch_time",
-                           metric_scope=dllg.EPOCH_SCOPE)
-    LOGGER.register_metric("run_time",
-                           metric_scope=dllg.RUN_SCOPE)
-    LOGGER.register_metric("val_iter_loss",
-                           metric_scope=dllg.EPOCH_SCOPE)
-    LOGGER.register_metric("train_epoch_items/sec",
-                           metric_scope=dllg.EPOCH_SCOPE)
-    LOGGER.register_metric("train_epoch_avg_items/sec",
-                           metric_scope=dllg.EPOCH_SCOPE)
-    LOGGER.register_metric("train_epoch_avg_loss",
-                           metric_scope=dllg.EPOCH_SCOPE)
+    LOGGER.timed_block_start('run')
+    LOGGER.register_metric(tags.TRAIN_ITERATION_LOSS, metric_scope=dllg.TRAIN_ITER_SCOPE)
+    LOGGER.register_metric('iter_time', metric_scope=dllg.TRAIN_ITER_SCOPE)
+    LOGGER.register_metric('epoch_time', metric_scope=dllg.EPOCH_SCOPE)
+    LOGGER.register_metric('run_time', metric_scope=dllg.RUN_SCOPE)
+    LOGGER.register_metric('val_iter_loss', metric_scope=dllg.EPOCH_SCOPE)
+    LOGGER.register_metric('train_epoch_items/sec', metric_scope=dllg.EPOCH_SCOPE)
+    LOGGER.register_metric('train_epoch_avg_items/sec', metric_scope=dllg.EPOCH_SCOPE)
+    LOGGER.register_metric('train_epoch_avg_loss', metric_scope=dllg.EPOCH_SCOPE)
 
     log_hardware()
     log_args(args)
@@ -274,7 +272,6 @@ def main():
                          group_name=Config.group_name)
 
     LOGGER.log(key=tags.RUN_START)
-    run_start_time = time.time()
 
     # Restore training from checkpoint
     if Config.restore_from:
@@ -302,7 +299,7 @@ def main():
 
     # FP16 option
     if Config.amp_run:  # TODO: test if FP16 actually works
-        model, optimizer = amp.initialize(model, optimizer, opt_level="O1")
+        model, optimizer = amp.initialize(model, optimizer, opt_level='O1')
         if distributed_run:
             model = DDP(model)
 
@@ -355,15 +352,12 @@ def main():
 
     LOGGER.log(key=tags.TRAIN_LOOP)
 
-    # Initialize torch TensorBoard writer
-    # TODO: Think how to deal with restored checkpoints.
+    # Save logs
     str_date = datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
-    tensorboard_log_dir = os.path.join(Config.tensorboard_log_dir, '{}_{}'.format(str_date, model_name))
-    tensorboard_writer = tensorboard.SummaryWriter(log_dir=tensorboard_log_dir)
+    tensorboard_writer = tensorboard.SummaryWriter(log_dir=main_directory)
 
-    # Add files with shell arguments and configs to tensorboard log directory.
-    shutil.copy2('configs/config.py', tensorboard_log_dir)
-    with open(os.path.join(tensorboard_log_dir, 'args.json'), 'w') as fl:
+    shutil.copy2('configs/config.py', main_directory)
+    with open(os.path.join(main_directory, 'args.json'), 'w') as fl:
         json.dump(vars(args), fl, indent=4)
 
     # Restore training from checkpoint logic
@@ -383,11 +377,8 @@ def main():
             train_epoch_avg_items_per_sec = 0.0
             num_iters = 0
 
-            # if overflow at the last iteration then do not save checkpoint
-            overflow = False
-
             for i, batch in enumerate(train_loader):
-                print("Batch: {}/{} epoch {}".format(i, len(train_loader), epoch))
+                print('Batch: {}/{} epoch {}'.format(i, len(train_loader), epoch))
 
                 LOGGER.iteration_start()
                 iter_start_time = time.time()
@@ -413,7 +404,7 @@ def main():
                     reduced_num_items = num_items.item()
 
                 if np.isnan(reduced_loss):
-                    raise Exception("loss is NaN")
+                    raise Exception('loss is NaN')
 
                 LOGGER.log(key=tags.TRAIN_ITERATION_LOSS, value=reduced_loss)
 
@@ -426,12 +417,8 @@ def main():
                 if Config.amp_run:
                     with amp.scale_loss(loss, optimizer) as scaled_loss:
                         scaled_loss.backward()
-                    # grad_norm = torch.nn.utils.clip_grad_norm_(
-                    #     amp.master_params(optimizer), args.grad_clip_thresh)
                 else:
                     loss.backward()
-                    # grad_norm = torch.nn.utils.clip_grad_norm_(
-                    #     model.parameters(), args.grad_clip_thresh)
 
                 optimizer.step()
 
@@ -444,9 +431,8 @@ def main():
                 items_per_sec = reduced_num_items/iter_time
                 train_epoch_avg_items_per_sec += items_per_sec
 
-                LOGGER.log(key="train_iter_items/sec",
-                           value=items_per_sec)
-                LOGGER.log(key="iter_time", value=iter_time)
+                LOGGER.log(key='train_iter_items/sec', value=items_per_sec)
+                LOGGER.log(key='iter_time', value=iter_time)
                 LOGGER.iteration_stop()
 
             LOGGER.log(key=tags.TRAIN_EPOCH_STOP, value=epoch)
@@ -459,15 +445,11 @@ def main():
             train_epoch_avg_loss_metric = \
                 train_epoch_avg_loss/num_iters if num_iters > 0 else 0.0
 
-            LOGGER.log(key="train_epoch_items/sec",
-                       value=train_epoch_items_per_sec_metric)
-            LOGGER.log(key="train_epoch_avg_items/sec",
-                       value=train_epoch_avg_items_per_sec_metric)
-            LOGGER.log(key="train_epoch_avg_loss",
-                       value=train_epoch_avg_loss_metric)
-            LOGGER.log(key="epoch_time", value=epoch_time)
+            LOGGER.log(key='train_epoch_items/sec', value=train_epoch_items_per_sec_metric)
+            LOGGER.log(key='train_epoch_avg_items/sec', value=train_epoch_avg_items_per_sec_metric)
+            LOGGER.log(key='train_epoch_avg_loss', value=train_epoch_avg_loss_metric)
+            LOGGER.log(key='epoch_time', value=epoch_time)
 
-            # Add logs to TensorBoard
             tensorboard_writer.add_scalar(tag='epoch_items_per_sec/train',
                                           scalar_value=train_epoch_items_per_sec_metric,
                                           global_step=epoch)
@@ -495,7 +477,9 @@ def main():
 
             if (epoch % Config.epochs_per_checkpoint == 0) and args.rank == 0:
                 checkpoint_path = os.path.join(
-                    Config.output_directory, 'checkpoint_{}_{}'.format(model_name, epoch))
+                    Config.output_directory, args.exp, str_date, str_time, 'checkpoint_{}'.format(epoch))
+
+
                 save_checkpoint(model, epoch, model_config, optimizer, checkpoint_path)
 
                 # Save test audio files to tensorboard
@@ -512,12 +496,12 @@ def main():
 
     run_stop_time = time.time()
     run_time = run_stop_time - run_start_time
-    LOGGER.log(key="run_time", value=run_time)
+    LOGGER.log(key='run_time', value=run_time)
     LOGGER.log(key=tags.RUN_FINAL)
 
-    print("training time", run_stop_time - run_start_time)
+    print('training time', run_stop_time - run_start_time)
 
-    LOGGER.timed_block_stop("run")
+    LOGGER.timed_block_stop('run')
 
     tensorboard_writer.close()
 

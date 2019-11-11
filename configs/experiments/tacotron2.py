@@ -88,8 +88,8 @@ class Config:
 
     ### Script args
     model_name = "Tacotron2"
-    output_directory = "/workspace/output/vlad_test/checkpoints"       # Directory to save checkpoints
-    log_file = "/workspace/output/vlad_test/nvlog.json"                       # Filename for logging
+    output_directory = "/workspace/output/"       # Directory to save checkpoints
+    log_file = "nvlog.json"                       # Filename for logging
 
     # TODO: Add path phrases for validation and writing to TensorBoard
     phrase_path = None
@@ -101,7 +101,6 @@ class Config:
     waveglow_checkpoint = "/workspace/output/sm_wg/checkpoint_WaveGlow_1750"                                            # Path to pre-trained WaveGlow checkpoint for sample generation
 
     restore_from = '/workspace/output/new_try_2/sm_from_lj_800_anneal/checkpoint_Tacotron2_1900'                        # Checkpoint path to restore from
-    tensorboard_log_dir = "/workspace/output/vlad_test"                                                                 # TensorBoard logs save directory location.
 
     # Training params
     epochs = 1910                                 # Number of total epochs to run
