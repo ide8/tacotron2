@@ -229,8 +229,9 @@ def adjust_learning_rate(epoch, optimizer, learning_rate, anneal_steps, anneal_f
 
 
 def main():
+    str_date, str_time = datetime.now().strftime("%d-%m-%yT%H-%M-%S").split('T')
+
     run_start_time = time.time()
-    str_date, str_time = str(np.datetime64(int(run_start_time), 's')).replace(':', '-').split('T')
 
     main_directory = os.path.join(Config.output_directory, args.exp, str_date, str_time)
 
@@ -476,8 +477,7 @@ def main():
             LOGGER.log(key=tags.EVAL_STOP, value=epoch)
 
             if (epoch % Config.epochs_per_checkpoint == 0) and args.rank == 0:
-                checkpoint_path = os.path.join(
-                    Config.output_directory, args.exp, str_date, str_time, 'checkpoint_{}'.format(epoch))
+                checkpoint_path = os.path.join(main_directory, 'checkpoint_{}'.format(epoch))
 
 
                 save_checkpoint(model, epoch, model_config, optimizer, checkpoint_path)

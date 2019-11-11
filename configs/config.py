@@ -88,23 +88,19 @@ class Config:
 
     ### Script args
     model_name = "Tacotron2"
-    output_directory = "/workspace/output/vlad_test/checkpoints"       # Directory to save checkpoints
-    log_file = "/workspace/output/vlad_test/nvlog.json"                       # Filename for logging
-
-    # TODO: Add path phrases for validation and writing to TensorBoard
-    phrase_path = None
+    output_directory = "/workspace/output/"       # Directory to save checkpoints
+    log_file = "nvlog.json"                       # Filename for logging
 
     anneal_steps = None                           # Epochs after which decrease learning rate
     anneal_factor = 0.1                           # Factor for annealing learning rate
 
-    tacotron2_checkpoint = "/workspace/output/new_try_2/sm_from_lj_800_anneal/checkpoint_Tacotron2_1900"                # Path to pre-trained Tacotron2 checkpoint for sample generation
-    waveglow_checkpoint = "/workspace/output/sm_wg/checkpoint_WaveGlow_1750"                                            # Path to pre-trained WaveGlow checkpoint for sample generation
+    tacotron2_checkpoint = "/workspace/output/t2_fp32_torch"                # Path to pre-trained Tacotron2 checkpoint for sample generation
+    waveglow_checkpoint = "/workspace/output/wg_fp32_torch"                 # Path to pre-trained WaveGlow checkpoint for sample generation
 
-    restore_from = '/workspace/output/new_try_2/sm_from_lj_800_anneal/checkpoint_Tacotron2_1900'                        # Checkpoint path to restore from
-    tensorboard_log_dir = "/workspace/output/vlad_test"                                                                 # TensorBoard logs save directory location.
+    restore_from = '/workspace/output/new_hope'                             # Checkpoint path to restore from
 
     # Training params
-    epochs = 1910                                 # Number of total epochs to run
+    epochs = 553                                  # Number of total epochs to run
     epochs_per_checkpoint = 1                     # Number of epochs per checkpoint
     seed = 1234                                   # Seed for PyTorch random number generators
     dynamic_loss_scaling = True                   # Enable dynamic loss scaling
