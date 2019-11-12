@@ -32,7 +32,7 @@ from waveglow.data_function import MelAudioLoader
 from tacotron2.data_function import batch_to_gpu as batch_to_gpu_tacotron2
 from waveglow.data_function import batch_to_gpu as batch_to_gpu_waveglow
 
-from configs.config import Config
+from configs import Config
 
 
 def get_collate_function(model_name, n_frames_per_step):

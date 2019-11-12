@@ -33,7 +33,7 @@ from tacotron2.model import Tacotron2
 from waveglow.model import WaveGlow
 import torch
 
-from configs.config import Config
+from configs import Config
 
 
 def parse_model_args(model_name, parser, add_help=False):

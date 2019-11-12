@@ -28,8 +28,10 @@
 import os
 import time
 import json
-import argparse
+
 import shutil
+import argparse
+import importlib
 import numpy as np
 from contextlib import contextmanager
 
@@ -45,36 +47,36 @@ from torch.utils import tensorboard
 # noinspection PyUnresolvedReferences
 from apex.parallel import DistributedDataParallel as DDP
 
-import models
-import loss_functions
-import data_functions
-
 from dllogger.logger import LOGGER
 import dllogger.logger as dllg
 from dllogger import tags
 from dllogger.autologging import log_hardware, log_args
 
 from apex import amp
+
 amp.lists.functional_overrides.FP32_FUNCS.remove('softmax')
 amp.lists.functional_overrides.FP16_FUNCS.append('softmax')
-
-from tacotron2.text import text_to_sequence
 
 
 parser = argparse.ArgumentParser(description='PyTorch Tacotron 2 Training')
 parser.add_argument('--exp', type=str, default=None, required=True, help='Name of an experiment for configs setting.')
 
 distributed = parser.add_argument_group('distributed setup')
-distributed.add_argument('--rank', default=0, type=int,
-                         help='Rank of the process, do not set! Done by multiproc module')
-distributed.add_argument('--world-size', default=1, type=int,
-                         help='Number of processes, do not set! Done by multiproc module')
+distributed.add_argument('--rank', default=0, type=int, help='Rank of the process, do not set! Done by multiproc module')
+distributed.add_argument('--world-size', default=1, type=int, help='Number of processes, do not set! Done by multiproc module')
 args = parser.parse_args()
 
-shutil.copyfile(os.path.join('configs', 'experiments', args.exp + '.py'), os.path.join('configs', 'config.py'))
 
+shutil.copyfile(os.path.join('configs', 'experiments', args.exp + '.py'), os.path.join('configs', '__init__.py'))
 
-from configs.config import Config
+configs = importlib.import_module('configs')
+configs = importlib.reload(configs)
+Config = configs.Config
+
+import models
+import loss_functions
+import data_functions
+from tacotron2.text import text_to_sequence
 
 
 def reduce_tensor(tensor, num_gpus):
@@ -347,7 +349,8 @@ def main():
     # Save logs
     tensorboard_writer = tensorboard.SummaryWriter(log_dir=main_directory)
 
-    shutil.copy2('configs/config.py', main_directory)
+    shutil.copy2('configs/__init__.py', os.path.join(main_directory, 'config.py'))
+
     with open(os.path.join(main_directory, 'args.json'), 'w') as fl:
         json.dump(vars(args), fl, indent=4)
 
