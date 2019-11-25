@@ -26,6 +26,7 @@
 # *****************************************************************************
 
 import torch
+
 from tacotron2.data_function import TextMelCollate
 from tacotron2.data_function import TextMelLoader
 from waveglow.data_function import MelAudioLoader

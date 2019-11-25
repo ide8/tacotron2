@@ -118,8 +118,8 @@ class Config:
     # Dataset
     load_mel_from_dist = False                                # Loads mel spectrograms from disk instead of computing them on the fly
     text_cleaners = ['english_cleaners']                      # Type of text cleaners for input text
-    training_files = "/workspace/training_data/train.txt"     # Path to training filelist
-    validation_files = "/workspace/training_data/val.txt"     # Path to validation filelist
+    training_files = '/workspace/training_data/train.txt'     # Path to training filelist
+    validation_files = '/workspace/training_data/val.txt'     # Path to validation filelist
 
     # Distributed
     dist_url = 'tcp://localhost:23456'                        # Url used to set up distributed training
@@ -136,5 +136,8 @@ class Config:
             # 'Hi.',
             # 'I would like to eat a Hamburger. Would you like to join me?',
             # 'Do you have any hobbies?'
+        ],
+        'mels': [
+            '/workspace/'
         ]
     }

@@ -25,61 +25,57 @@
 #
 # *****************************************************************************
 
+# Default imports
 import os
 import time
 import json
-
 import shutil
 import argparse
 import importlib
 import numpy as np
+from datetime import datetime
 from contextlib import contextmanager
 
-from datetime import datetime
-
+# Torch
 import torch
-from torch.utils.data import DataLoader
-
 import torch.distributed as dist
-from torch.utils.data.distributed import DistributedSampler
 from torch.utils import tensorboard
+from torch.utils.data import DataLoader
+from torch.utils.data.distributed import DistributedSampler
 
-# noinspection PyUnresolvedReferences
+# Distributed + AMP
 from apex.parallel import DistributedDataParallel as DDP
-
-from dllogger.logger import LOGGER
-import dllogger.logger as dllg
-from dllogger import tags
-from dllogger.autologging import log_hardware, log_args
-
 from apex import amp
-
 amp.lists.functional_overrides.FP32_FUNCS.remove('softmax')
 amp.lists.functional_overrides.FP16_FUNCS.append('softmax')
 
-
+# Parse args
 parser = argparse.ArgumentParser(description='PyTorch Tacotron 2 Training')
 parser.add_argument('--exp', type=str, default=None, required=True, help='Name of an experiment for configs setting.')
-
-distributed = parser.add_argument_group('distributed setup')
-distributed.add_argument('--rank', default=0, type=int, help='Rank of the process, do not set! Done by multiproc module')
-distributed.add_argument('--world-size', default=1, type=int, help='Number of processes, do not set! Done by multiproc module')
+parser.add_argument('--rank', default=0, type=int, help='Rank of the process, do not set! Done by multiproc module')
+parser.add_argument('--world-size', default=1, type=int, help='Number of processes, do not set! Done by multiproc module')
 args = parser.parse_args()
 
-
+# Prepare config
 shutil.copyfile(os.path.join('configs', 'experiments', args.exp + '.py'), os.path.join('configs', '__init__.py'))
 
+# Reload Config
 configs = importlib.import_module('configs')
 configs = importlib.reload(configs)
 Config = configs.Config
 
-import models
-import loss_functions
-import data_functions
+# Config dependent imports
 from tacotron2.text import text_to_sequence
+from router import models, loss_functions, data_functions
 
 
 def reduce_tensor(tensor, num_gpus):
+    """
+
+    :param tensor:
+    :param num_gpus:
+    :return:
+    """
     rt = tensor.clone()
     dist.all_reduce(rt, op=dist.reduce_op.SUM)
     rt /= num_gpus
@@ -87,6 +83,15 @@ def reduce_tensor(tensor, num_gpus):
 
 
 def init_distributed(dist_backend, dist_url, world_size, rank, group_name):
+    """
+
+    :param dist_backend:
+    :param dist_url:
+    :param world_size:
+    :param rank:
+    :param group_name:
+    :return:
+    """
     assert torch.cuda.is_available(), 'Distributed mode requires CUDA.'
     print('Initializing Distributed')
 
@@ -102,11 +107,16 @@ def init_distributed(dist_backend, dist_url, world_size, rank, group_name):
 
 
 def restore_checkpoint(restore_path, model_name):
-    # Restore model from checkpoint
+    """
+
+    :param restore_path:
+    :param model_name:
+    :return:
+    """
     checkpoint = torch.load(restore_path, map_location='cpu')
     start_epoch = checkpoint['epoch'] + 1
 
-    print('Restoring from {} checkpoint'.format(restore_path))
+    print('Restoring from `{}` checkpoint'.format(restore_path))
 
     model_config = checkpoint['config']
     model = models.get_model(model_name, model_config, to_cuda=True)
@@ -124,6 +134,15 @@ def restore_checkpoint(restore_path, model_name):
 
 
 def save_checkpoint(model, epoch, config, optimizer, filepath):
+    """
+
+    :param model:
+    :param epoch:
+    :param config:
+    :param optimizer:
+    :param filepath:
+    :return:
+    """
     print('Saving model and optimizer state at epoch {} to {}'.format(
         epoch, filepath))
     torch.save({'epoch': epoch,
@@ -133,6 +152,15 @@ def save_checkpoint(model, epoch, config, optimizer, filepath):
 
 
 def save_sample(model_name, model_path, tacotron2_path, waveglow_path, phrases):
+    """
+
+    :param model_name:
+    :param model_path:
+    :param tacotron2_path:
+    :param waveglow_path:
+    :param phrases:
+    :return:
+    """
     if model_name == 'Tacotron2':
         assert waveglow_path is not None, 'WaveGlow checkpoint path is missing, could not generate sample'
         tacotron2_path = model_path
@@ -147,22 +175,25 @@ def save_sample(model_name, model_path, tacotron2_path, waveglow_path, phrases):
     t2, _, _, _ = restore_checkpoint(tacotron2_path, 'Tacotron2')
     wg, _, _, _ = restore_checkpoint(waveglow_path, 'WaveGlow')
 
-    pipeline = [t2, wg]
+    with evaluating(t2), evaluating(wg), torch.no_grad():
+        ref_audios = phrases['ref_audios'] if Config.gst_use else (None,)
 
-    with evaluating(pipeline[0]), evaluating(pipeline[1]), torch.no_grad():
         for speaker_id in phrases['speaker_ids']:
             for text in phrases['texts']:
-                inputs = np.array(text_to_sequence(text, ['english_cleaners']))[None, :]
-                inputs = torch.from_numpy(inputs).to(device='cuda', dtype=torch.int64)
+                for ref_audio in ref_audios:
+                    inputs = np.array(text_to_sequence(text, ['english_cleaners']))[None, :]
+                    inputs = torch.from_numpy(inputs).to(device='cuda', dtype=torch.int64)
 
-                s_id = torch.IntTensor([speaker_id]).cuda().long()
+                    s_id = torch.IntTensor([speaker_id]).cuda().long()
 
-                _, mel, _, _ = pipeline[0].infer(inputs, s_id)
-                audio = pipeline[1].infer(mel)
+                    ref_mel = ref_audio
 
-                audio_numpy = audio[0].data.cpu().numpy()
+                    _, mel, _, _ = t2.infer(inputs, s_id, ref_mel=ref_mel)
+                    audio = wg.infer(mel)
 
-                yield audio_numpy
+                    audio_numpy = audio[0].data.cpu().numpy()
+
+                    yield speaker_id, audio_numpy, ref_mel
 
 
 # adapted from: https://discuss.pytorch.org/t/opinion-eval-should-be-a-context-manager/18998/3
@@ -171,7 +202,12 @@ def save_sample(model_name, model_path, tacotron2_path, waveglow_path, phrases):
 
 @contextmanager
 def evaluating(model):
-    """Temporarily switch to evaluation mode."""
+    """
+    Temporarily switch to evaluation mode.
+
+    :param model:
+    :return:
+    """
     istrain = model.training
     try:
         model.eval()
@@ -182,7 +218,19 @@ def evaluating(model):
 
 
 def validate(model, criterion, valset, batch_size, world_size, collate_fn, distributed_run, batch_to_gpu):
-    """Handles all the validation scoring and printing"""
+    """
+    Handles all the validation scoring and printing
+
+    :param model:
+    :param criterion:
+    :param valset:
+    :param batch_size:
+    :param world_size:
+    :param collate_fn:
+    :param distributed_run:
+    :param batch_to_gpu:
+    :return:
+    """
     with evaluating(model), torch.no_grad():
         val_sampler = DistributedSampler(valset) if distributed_run else None
         val_loader = DataLoader(valset, num_workers=1, shuffle=False, sampler=val_sampler,
@@ -191,7 +239,6 @@ def validate(model, criterion, valset, batch_size, world_size, collate_fn, distr
 
         for i, batch in enumerate(val_loader):
             x, y, len_x = batch_to_gpu(batch)
-
             y_pred = model(x)
             loss = criterion(y_pred, y)
 
@@ -201,16 +248,21 @@ def validate(model, criterion, valset, batch_size, world_size, collate_fn, distr
                 reduced_val_loss = loss.item()
 
             val_loss += reduced_val_loss
-
         val_loss = val_loss / (i + 1)
-
-    LOGGER.log(key='val_iter_loss', value=val_loss)
 
     return val_loss
 
 
 def adjust_learning_rate(epoch, optimizer, learning_rate, anneal_steps, anneal_factor):
+    """
 
+    :param epoch:
+    :param optimizer:
+    :param learning_rate:
+    :param anneal_steps:
+    :param anneal_factor:
+    :return:
+    """
     p = 0
     if anneal_steps is not None:
         for i, a_step in enumerate(anneal_steps):
@@ -222,48 +274,41 @@ def adjust_learning_rate(epoch, optimizer, learning_rate, anneal_steps, anneal_f
     else:
         lr = learning_rate*(anneal_factor ** p)
 
-    if optimizer.param_groups[0]['lr'] != lr:
-        LOGGER.log_event('learning_rate changed',
-                         value=str(optimizer.param_groups[0]['lr']) + ' -> ' + str(lr))
-
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
 
 
 def main():
+    # Experiment dates
     str_date, str_time = datetime.now().strftime("%d-%m-%yT%H-%M-%S").split('T')
 
-    run_start_time = time.time()
-
+    # Directories paths
     main_directory = os.path.join(Config.output_directory, args.exp, str_date, str_time)
+    tf_directory = os.path.join(main_directory, 'tf_events')
+    checkpoint_directory = os.path.join(main_directory, 'checkpoints')
+    print('Experiment path: `{}`'.format(main_directory))
 
+    # Directories check
     if not os.path.exists(main_directory):
         os.makedirs(main_directory)
 
-    LOGGER.set_model_name('Tacotron2_PyT')
-    LOGGER.set_backends([
-        dllg.StdOutBackend(log_file=None,
-                           logging_scope=dllg.TRAIN_ITER_SCOPE, iteration_interval=1),
-        dllg.JsonBackend(log_file=os.path.join(main_directory, Config.log_file) if args.rank == 0 else None,
-                         logging_scope=dllg.TRAIN_ITER_SCOPE, iteration_interval=1)
-    ])
+    if not os.path.exists(checkpoint_directory):
+        os.makedirs(checkpoint_directory)
 
-    LOGGER.timed_block_start('run')
-    LOGGER.register_metric(tags.TRAIN_ITERATION_LOSS, metric_scope=dllg.TRAIN_ITER_SCOPE)
-    LOGGER.register_metric('iter_time', metric_scope=dllg.TRAIN_ITER_SCOPE)
-    LOGGER.register_metric('epoch_time', metric_scope=dllg.EPOCH_SCOPE)
-    LOGGER.register_metric('run_time', metric_scope=dllg.RUN_SCOPE)
-    LOGGER.register_metric('val_iter_loss', metric_scope=dllg.EPOCH_SCOPE)
-    LOGGER.register_metric('train_epoch_items/sec', metric_scope=dllg.EPOCH_SCOPE)
-    LOGGER.register_metric('train_epoch_avg_items/sec', metric_scope=dllg.EPOCH_SCOPE)
-    LOGGER.register_metric('train_epoch_avg_loss', metric_scope=dllg.EPOCH_SCOPE)
+    if not os.path.exists(tf_directory):
+        os.makedirs(tf_directory)
 
-    log_hardware()
-    log_args(args)
+    # Experiment files set up
+    tensorboard_writer = tensorboard.SummaryWriter(log_dir=tf_directory)
+    shutil.copy2('configs/__init__.py', os.path.join(main_directory, 'config.py'))
+    with open(os.path.join(main_directory, 'args.json'), 'w') as fl:
+        json.dump(vars(args), fl, indent=4)
 
+    # Enble cuda
     torch.backends.cudnn.enabled = Config.cudnn_enabled
     torch.backends.cudnn.benchmark = Config.cudnn_benchmark
 
+    # Set model name & Init distributed
     model_name = Config.model_name
     distributed_run = args.world_size > 1
 
@@ -273,8 +318,6 @@ def main():
                          world_size=args.world_size,
                          rank=args.rank,
                          group_name=Config.group_name)
-
-    LOGGER.log(key=tags.RUN_START)
 
     # Restore training from checkpoint
     if Config.restore_from:
@@ -305,7 +348,7 @@ def main():
         if distributed_run:
             model = DDP(model)
 
-    # Set sigma for Waveglow loss
+    # Set sigma for WaveGlow loss
     try:
         sigma = model_config['sigma']
     except KeyError:
@@ -320,12 +363,11 @@ def main():
     except KeyError:
         n_frames_per_step = None
 
-    collate_fn = data_functions.get_collate_function(model_name, n_frames_per_step)
 
+    # Set dataloaders
+    collate_fn = data_functions.get_collate_function(model_name, n_frames_per_step)
     trainset = data_functions.get_data_loader(model_name=model_name, audiopaths_and_text=Config.training_files)
     train_sampler = DistributedSampler(trainset) if distributed_run else None
-
-    # Define train data loader
     train_loader = DataLoader(trainset,
                               num_workers=1,
                               shuffle=False,
@@ -334,7 +376,6 @@ def main():
                               pin_memory=False,
                               drop_last=True,
                               collate_fn=collate_fn)
-
     valset = data_functions.get_data_loader(model_name=model_name, audiopaths_and_text=Config.validation_files)
     batch_to_gpu = data_functions.get_batch_to_gpu(model_name)
 
@@ -344,29 +385,18 @@ def main():
     # Set model into training mode
     model.train()
 
-    LOGGER.log(key=tags.TRAIN_LOOP)
-
-    # Save logs
-    tensorboard_writer = tensorboard.SummaryWriter(log_dir=main_directory)
-
-    shutil.copy2('configs/__init__.py', os.path.join(main_directory, 'config.py'))
-
-    with open(os.path.join(main_directory, 'args.json'), 'w') as fl:
-        json.dump(vars(args), fl, indent=4)
-
-    # Restore training from checkpoint logic
+    # Training loop
     if start_epoch >= Config.epochs:
         print('Checkpoint epoch {} >= total epochs {}'.format(start_epoch, Config.epochs))
     else:
         for epoch in range(start_epoch, Config.epochs):
-            LOGGER.epoch_start()
-            epoch_start_time = time.time()
-            LOGGER.log(key=tags.TRAIN_EPOCH_START, value=epoch)
 
-            # used to calculate avg items/sec over epoch
+            epoch_start_time = time.time()
+
+            # Used to calculate avg items/sec over epoch
             reduced_num_items_epoch = 0
 
-            # used to calculate avg loss over epoch
+            # Used to calculate avg loss over epoch
             train_epoch_avg_loss = 0.0
             train_epoch_avg_items_per_sec = 0.0
             num_iters = 0
@@ -374,20 +404,11 @@ def main():
             for i, batch in enumerate(train_loader):
                 print('Batch: {}/{} epoch {}'.format(i, len(train_loader), epoch))
 
-                LOGGER.iteration_start()
                 iter_start_time = time.time()
-                LOGGER.log(key=tags.TRAIN_ITER_START, value=i)
-
-                adjust_learning_rate(epoch, optimizer,
-                                     learning_rate=Config.learning_rate,
-                                     anneal_steps=Config.anneal_steps,
-                                     anneal_factor=Config.anneal_factor)
+                adjust_learning_rate(epoch, optimizer, learning_rate=Config.learning_rate, anneal_steps=Config.anneal_steps, anneal_factor=Config.anneal_factor)
                 model.zero_grad()
-
                 x, y, num_items = batch_to_gpu(batch)
-
                 y_pred = model(x)
-
                 loss = criterion(y_pred, y)
 
                 if distributed_run:
@@ -400,12 +421,10 @@ def main():
                 if np.isnan(reduced_loss):
                     raise Exception('loss is NaN')
 
-                LOGGER.log(key=tags.TRAIN_ITERATION_LOSS, value=reduced_loss)
-
                 train_epoch_avg_loss += reduced_loss
                 num_iters += 1
 
-                # accumulate number of items processed in this epoch
+                # Accumulate number of items processed in this epoch
                 reduced_num_items_epoch += reduced_num_items
 
                 if Config.amp_run:
@@ -418,86 +437,58 @@ def main():
 
                 iteration += 1
 
-                LOGGER.log(key=tags.TRAIN_ITER_STOP, value=i)
-
                 iter_stop_time = time.time()
                 iter_time = iter_stop_time - iter_start_time
                 items_per_sec = reduced_num_items/iter_time
                 train_epoch_avg_items_per_sec += items_per_sec
 
-                LOGGER.log(key='train_iter_items/sec', value=items_per_sec)
-                LOGGER.log(key='iter_time', value=iter_time)
-                LOGGER.iteration_stop()
-
-            LOGGER.log(key=tags.TRAIN_EPOCH_STOP, value=epoch)
             epoch_stop_time = time.time()
+
             epoch_time = epoch_stop_time - epoch_start_time
-
-            train_epoch_items_per_sec_metric = reduced_num_items_epoch / epoch_time
-            train_epoch_avg_items_per_sec_metric = \
-                train_epoch_avg_items_per_sec / num_iters if num_iters > 0 else 0.0
-            train_epoch_avg_loss_metric = \
-                train_epoch_avg_loss/num_iters if num_iters > 0 else 0.0
-
-            LOGGER.log(key='train_epoch_items/sec', value=train_epoch_items_per_sec_metric)
-            LOGGER.log(key='train_epoch_avg_items/sec', value=train_epoch_avg_items_per_sec_metric)
-            LOGGER.log(key='train_epoch_avg_loss', value=train_epoch_avg_loss_metric)
-            LOGGER.log(key='epoch_time', value=epoch_time)
-
-            tensorboard_writer.add_scalar(tag='epoch_items_per_sec/train',
-                                          scalar_value=train_epoch_items_per_sec_metric,
-                                          global_step=epoch)
-            tensorboard_writer.add_scalar(tag='epoch_avg_items_per_sec/train',
-                                          scalar_value=train_epoch_avg_items_per_sec_metric,
-                                          global_step=epoch)
-            tensorboard_writer.add_scalar(tag='epoch_avg_loss/train',
-                                          scalar_value=train_epoch_avg_loss_metric,
-                                          global_step=epoch)
-            tensorboard_writer.add_scalar(tag='epoch_time/train',
-                                          scalar_value=epoch_time,
-                                          global_step=epoch)
-
-            LOGGER.log(key=tags.EVAL_START, value=epoch)
-
+            train_epoch_items_per_sec = reduced_num_items_epoch / epoch_time
+            train_epoch_avg_items_per_sec = train_epoch_avg_items_per_sec / num_iters if num_iters > 0 else 0.0
+            train_epoch_avg_loss = train_epoch_avg_loss / num_iters if num_iters > 0 else 0.0
             epoch_val_loss = validate(model, criterion, valset, Config.batch_size, args.world_size,
                                       collate_fn, distributed_run, batch_to_gpu)
 
-            # Add configs to tensorboard
+            tensorboard_writer.add_scalar(tag='train_stats/epoch_items_per_sec',
+                                          scalar_value=train_epoch_items_per_sec,
+                                          global_step=epoch)
+            tensorboard_writer.add_scalar(tag='train_stats/epoch_avg_items_per_sec',
+                                          scalar_value=train_epoch_avg_items_per_sec,
+                                          global_step=epoch)
+            tensorboard_writer.add_scalar(tag='train_stats/epoch_time',
+                                          scalar_value=epoch_time,
+                                          global_step=epoch)
+            tensorboard_writer.add_scalar(tag='epoch_avg_loss/train',
+                                          scalar_value=train_epoch_avg_loss,
+                                          global_step=epoch)
             tensorboard_writer.add_scalar(tag='epoch_avg_loss/val',
                                           scalar_value=epoch_val_loss,
                                           global_step=epoch)
 
-            LOGGER.log(key=tags.EVAL_STOP, value=epoch)
+
 
             if (epoch % Config.epochs_per_checkpoint == 0) and args.rank == 0:
-                checkpoint_path = os.path.join(main_directory, 'checkpoint_{}'.format(epoch))
+                checkpoint_path = os.path.join(checkpoint_directory, 'checkpoint_{}'.format(epoch))
                 save_checkpoint(model, epoch, model_config, optimizer, checkpoint_path)
 
                 # Save test audio files to tensorboard
-                for i, sample in enumerate(save_sample(model_name,
-                                                       checkpoint_path,
-                                                       Config.tacotron2_checkpoint,
-                                                       Config.waveglow_checkpoint,
-                                                       Config.phrases)):
+                for i, (speaker_id, sample, ref_mel) in enumerate(save_sample(model_name,
+                                                        checkpoint_path,
+                                                        Config.tacotron2_checkpoint,
+                                                        Config.waveglow_checkpoint,
+                                                        Config.phrases)):
 
-                    tensorboard_writer.add_audio(tag='epoch_{}/sample_{}'.format(epoch, i),
+                    if Config.gst_use:
+                        tensorboard_writer.add_audio(tag='epoch_{}/ref:speaker_{}_sample_{}'.format(epoch, speaker_id, i),
+                                                     snd_tensor=ref_mel,
+                                                     sample_rate=Config.sampling_rate)
+
+                    tensorboard_writer.add_audio(tag='epoch_{}/infer:speaker_{}_sample_{}'.format(epoch, speaker_id, i),
                                                  snd_tensor=sample,
                                                  sample_rate=Config.sampling_rate)
-            LOGGER.epoch_stop()
-
-    run_stop_time = time.time()
-    run_time = run_stop_time - run_start_time
-    LOGGER.log(key='run_time', value=run_time)
-    LOGGER.log(key=tags.RUN_FINAL)
-
-    print('training time', run_stop_time - run_start_time)
-
-    LOGGER.timed_block_stop('run')
-
     tensorboard_writer.close()
-
-    if args.rank == 0:
-        LOGGER.finish()
 
 
 if __name__ == '__main__':
