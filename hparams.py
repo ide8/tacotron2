@@ -87,3 +87,74 @@ class Hyperparameters():
 	### LM Parameters
 	use_lm = False
 	language_model = 'gpt-2'
+
+
+class PreprocessingConfig:
+	code_path = '/workspace/code/gst'
+	OUTPUT_DIRECTORY = '/workspace/training_data'
+	SR = 22050
+	TOP_DB = 40
+	limit_by = 'linda_johnson'
+	minimum_viable_dur = 0.05
+	N = 100000
+	output_directory = '/media/olga/b40f5f55-fcbc-4f51-a740-22ed42f6902c/Olga/tacotron2/proc'
+	data= [
+		(
+			'/media/olga/b40f5f55-fcbc-4f51-a740-22ed42f6902c/Olga/tacotron2/linda_johnson',
+			0,
+			False
+		),
+		(
+			'/media/olga/b40f5f55-fcbc-4f51-a740-22ed42f6902c/Olga/tacotron2/scarjo_the_dive_descript_grouped_50mil',
+			1,
+			True
+		),
+		(
+			'/media/olga/b40f5f55-fcbc-4f51-a740-22ed42f6902c/Olga/tacotron2/scarjo_the_dive_descript_ungrouped',
+			1,
+			True
+		)
+		# (
+		#     '/workspace/data/gcp/samantha_default',
+		#     1,
+		#     True
+		#     True
+		# ),
+		# (
+		#     '/workspace/data/scarjo_her',
+		#     1,
+		#     True,
+		#     True
+		# ),
+		# (
+		#     '/workspace/data/aws/dataset/blizzard_2013',
+		#     2,
+		#     True
+		#     True
+		# ),
+		# (
+		#     '/workspace/data/aws/dataset/en_US/by_book/female/judy_bieber',
+		#     3,
+		#     True
+		#     True
+		# ),
+		# (
+		#     '/workspace/data/aws/dataset/en_US/by_book/female/mary_ann',
+		#     4,
+		#     True
+		#     True
+		# ),
+		# (
+		#     '/workspace/data/aws/dataset/en_UK/by_book/female/elizabeth_klett',
+		#     5,
+		#     True
+		#     True
+		# ),
+		# (
+		#     '/workspace/data/aws/dataset/en_US/by_book/male/elliot_miller',
+		#     6,
+		#     True
+		#     True
+		# )
+	]
+
