@@ -123,7 +123,7 @@ def main(output_directory, data):
         'text': [r[1] for r in results],
         'dur': [r[2] for r in results],
         'speaker': [r[3] for r in results]
-         })
+    })
     speakers = list(distribution['speaker'].unique())
 
     maxt = Config.text_limit
