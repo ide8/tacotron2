@@ -55,20 +55,6 @@ class Config:
     postnet_kernel_size = 5                      # Postnet kernel size
     postnet_n_convolutions = 5                   # Number of postnet convolutions
 
-    # GST
-    gst_use = False                              # Use or not to use GST
-    gst_n_tokens = 10                            # Number of GSTs
-    gst_n_heads = 16                             # Number of heads in GST multi-head attention
-
-    # Reference Encoder
-    style_embedding_dim = 256                     # Style embedding dim
-    ref_enc_filters = [32, 32, 64, 64, 128, 128]  # Reference encoder filter
-    ref_enc_kernel_size = 3                       # Reference encoder kernel size
-    ref_enc_stride = 2                            # Reference encoder stride
-    ref_enc_pad = 1                               # Reference encoder pad
-    ref_enc_gru_dim = style_embedding_dim // 2    # Reference encoder GRU dim
-
-
     ### Waveglow params
     n_flows = 12                                  # Number of steps of flow
     n_group = 8                                   # Number of samples in a group processed by the steps of flow
@@ -126,18 +112,44 @@ class Config:
     group_name = "group_name"                                 # Distributed group name
     dist_backend = "nccl"                                     # Distributed run backend
 
-
     # Sample phrases
     phrases = {
         'speaker_ids': [0, 1],
         'texts': [
             'Hello, how are you doing today?',
             'I would like to eat a Hamburger.',
-            # 'Hi.',
-            # 'I would like to eat a Hamburger. Would you like to join me?',
-            # 'Do you have any hobbies?'
-        ],
-        'mels': [
-            '/workspace/'
+            'Hi.',
+            'I would like to eat a Hamburger. Would you like to join me?',
+            'Do you have any hobbies?'
         ]
     }
+
+
+class PreprocessingConfig:
+    cpus = 42                                    # Amount of cpus for parallelization
+    sr = 22050                                   # sampling ratio for audio processing
+    top_db = 40                                  # level to trim audio
+    limit_by = 'linda_johnson'                   # speaker to measure text_limit, dur_limit
+    minimum_viable_dur = 0.05                    # min duration of audio
+    text_limit = None                            # max text length (used by default)
+    dur_limit = None                             # max audio duration (used by default)
+    n = 100000                                   # max size of training dataset per speaker
+
+    output_directory = '/media/olga/b40f5f55-fcbc-4f51-a740-22ed42f6902c/Olga/tacotron2/proc'
+    data = [
+        {
+            'path': '/media/olga/b40f5f55-fcbc-4f51-a740-22ed42f6902c/Olga/tacotron2/linda_johnson',
+            'speaker_id': 0,
+            'process_audio': False
+        },
+        {
+            'path': '/media/olga/b40f5f55-fcbc-4f51-a740-22ed42f6902c/Olga/tacotron2/scarjo_the_dive_descript_grouped_50mil',
+            'speaker_id': 1,
+            'process_audio': True
+        },
+        {
+            'path': '/media/olga/b40f5f55-fcbc-4f51-a740-22ed42f6902c/Olga/tacotron2/scarjo_the_dive_descript_ungrouped',
+            'speaker_id': 1,
+            'process_audio': True
+        }
+    ]

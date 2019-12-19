@@ -176,25 +176,19 @@ def save_sample(model_name, model_path, tacotron2_path, waveglow_path, phrases):
     wg, _, _, _ = restore_checkpoint(waveglow_path, 'WaveGlow')
 
     with evaluating(t2), evaluating(wg), torch.no_grad():
-        ref_audios = phrases['ref_audios'] if Config.gst_use else (None,)
-
         for speaker_id in phrases['speaker_ids']:
             for text in phrases['texts']:
-                for ref_audio in ref_audios:
-                    inputs = np.array(text_to_sequence(text, ['english_cleaners']))[None, :]
-                    inputs = torch.from_numpy(inputs).to(device='cuda', dtype=torch.int64)
+                inputs = np.array(text_to_sequence(text, ['english_cleaners']))[None, :]
+                inputs = torch.from_numpy(inputs).to(device='cuda', dtype=torch.int64)
 
-                    s_id = torch.IntTensor([speaker_id]).cuda().long()
+                s_id = torch.IntTensor([speaker_id]).cuda().long()
 
-                    ref_mel = ref_audio
+                _, mel, _, _ = t2.infer(inputs, s_id)
+                audio = wg.infer(mel)
 
-                    _, mel, _, _ = t2.infer(inputs, s_id, ref_mel=ref_mel)
-                    audio = wg.infer(mel)
+                audio_numpy = audio[0].data.cpu().numpy()
 
-                    audio_numpy = audio[0].data.cpu().numpy()
-
-                    yield speaker_id, audio_numpy, ref_mel
-
+                yield speaker_id, audio_numpy
 
 # adapted from: https://discuss.pytorch.org/t/opinion-eval-should-be-a-context-manager/18998/3
 # Following snippet is licensed under MIT license
@@ -304,7 +298,7 @@ def main():
     with open(os.path.join(main_directory, 'args.json'), 'w') as fl:
         json.dump(vars(args), fl, indent=4)
 
-    # Enble cuda
+    # Enable cuda
     torch.backends.cudnn.enabled = Config.cudnn_enabled
     torch.backends.cudnn.benchmark = Config.cudnn_benchmark
 
@@ -363,7 +357,6 @@ def main():
     except KeyError:
         n_frames_per_step = None
 
-
     # Set dataloaders
     collate_fn = data_functions.get_collate_function(model_name, n_frames_per_step)
     trainset = data_functions.get_data_loader(model_name=model_name, audiopaths_and_text=Config.training_files)
@@ -405,7 +398,8 @@ def main():
                 print('Batch: {}/{} epoch {}'.format(i, len(train_loader), epoch))
 
                 iter_start_time = time.time()
-                adjust_learning_rate(epoch, optimizer, learning_rate=Config.learning_rate, anneal_steps=Config.anneal_steps, anneal_factor=Config.anneal_factor)
+                adjust_learning_rate(epoch, optimizer, learning_rate=Config.learning_rate,
+                                     anneal_steps=Config.anneal_steps, anneal_factor=Config.anneal_factor)
                 model.zero_grad()
                 x, y, num_items = batch_to_gpu(batch)
                 y_pred = model(x)
@@ -467,23 +461,16 @@ def main():
                                           scalar_value=epoch_val_loss,
                                           global_step=epoch)
 
-
-
             if (epoch % Config.epochs_per_checkpoint == 0) and args.rank == 0:
                 checkpoint_path = os.path.join(checkpoint_directory, 'checkpoint_{}'.format(epoch))
                 save_checkpoint(model, epoch, model_config, optimizer, checkpoint_path)
 
                 # Save test audio files to tensorboard
-                for i, (speaker_id, sample, ref_mel) in enumerate(save_sample(model_name,
-                                                        checkpoint_path,
-                                                        Config.tacotron2_checkpoint,
-                                                        Config.waveglow_checkpoint,
-                                                        Config.phrases)):
-
-                    if Config.gst_use:
-                        tensorboard_writer.add_audio(tag='epoch_{}/ref:speaker_{}_sample_{}'.format(epoch, speaker_id, i),
-                                                     snd_tensor=ref_mel,
-                                                     sample_rate=Config.sampling_rate)
+                for i, (speaker_id, sample) in enumerate(save_sample(model_name,
+                                                         checkpoint_path,
+                                                         Config.tacotron2_checkpoint,
+                                                         Config.waveglow_checkpoint,
+                                                         Config.phrases)):
 
                     tensorboard_writer.add_audio(tag='epoch_{}/infer:speaker_{}_sample_{}'.format(epoch, speaker_id, i),
                                                  snd_tensor=sample,

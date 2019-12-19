@@ -516,201 +516,6 @@ class Decoder(nn.Module):
         return mel_outputs, gate_outputs, alignments
 
 
-class GST(nn.Module):
-    def __init__(self, n_mel_channels, style_embedding_dim,
-                 gst_n_tokens, gst_n_heads, ref_enc_filters, ref_enc_kernel_size,
-                 ref_enc_stride, ref_enc_pad, ref_enc_gru_dim):
-        super(GST, self).__init__()
-
-        self.encoder = ReferenceEncoder(n_mel_channels, ref_enc_filters, ref_enc_kernel_size,
-                                        ref_enc_stride, ref_enc_pad, ref_enc_gru_dim)
-
-        self.stl = STL(style_embedding_dim, gst_n_tokens, gst_n_heads)
-
-    def forward(self, inputs):                 # [N, Ty/r, n_mels*r] (r=n_frames_per_step)
-        enc_out = self.encoder(inputs)         # [N, ref_enc_gru_size]
-        style_embed = self.stl(enc_out)        # [N, 1, style_embedding_size]
-
-        return style_embed
-
-
-class ReferenceEncoder(nn.Module):
-    """
-    inputs  [N, Ty/r, n_mels*r]
-    outputs [N, ref_enc_gru_size]
-    """
-    def __init__(self, n_mel_channels, ref_enc_filters, ref_enc_kernel_size,
-                 ref_enc_stride, ref_enc_pad, ref_enc_gru_dim):
-        super(ReferenceEncoder, self).__init__()
-
-        self.n_mel_channels = n_mel_channels
-
-        n_filters = len(ref_enc_filters)
-        filters = [1] + ref_enc_filters
-
-        convolutions = []
-
-        out_channels = self._calculate_channels(self.n_mel_channels, ref_enc_kernel_size,
-                                                ref_enc_stride, ref_enc_pad, n_filters)
-
-        for i in range(n_filters):
-            conv_layer = nn.Sequential(
-                    nn.Conv2d(in_channels=filters[i],
-                          out_channels=filters[i + 1],
-                          kernel_size=(ref_enc_kernel_size, ref_enc_kernel_size),
-                          stride=(ref_enc_stride, ref_enc_stride),
-                          padding=(ref_enc_pad, ref_enc_pad)
-                        ),
-                    nn.BatchNorm2d(num_features=ref_enc_filters[i])
-                )
-            convolutions.append(conv_layer)
-
-        self.convolutions = nn.ModuleList(convolutions)
-        self.gru = nn.GRU(input_size=ref_enc_filters[-1] * out_channels,
-                          hidden_size=ref_enc_gru_dim,
-                          batch_first=True)
-
-    def _calculate_channels(self, S, kernel_size, stride, pad, n_convs):
-        for i in range(n_convs):
-            S = (S - kernel_size + 2 * pad) // stride + 1
-        return S
-
-    def forward(self, inputs):
-        N = inputs.size(0)
-        x = inputs.view(N, 1, -1, self.n_mel_channels) # [N, 1, Ty, n_mel_channels]
-
-        for conv in self.convolutions:                 # [N, 128, Ty//2^n_filters, n_mel_channels//2^n_filters]
-            x = F.relu(conv(x))
-
-        x = x.transpose(1, 2)                          # [N, Ty//2^n_filters, 128, n_mel_channels//2^n_filters]
-        N = x.size(0)
-        T = x.size(1)
-
-        x = x.contiguous().view(N, T, -1)              # [N, Ty//2^n_filters, 128*n_mel_channels//2^n_filters]
-
-        memory, x = self.gru(x)                        # [1, N, style_embedding_size//2]
-
-        x = x.squeeze(0)                               # [N, style_embedding_size//2]
-
-        return x
-
-
-class STL(nn.Module):
-    """
-    inputs  [N, style_embedding_size//2]
-    outputs [N, style_embedding_size]
-    """
-    def __init__(self, style_embedding_dim, gst_n_tokens, gst_n_heads):
-        super(STL, self).__init__()
-
-        d_q = style_embedding_dim // 2
-        d_k = style_embedding_dim // gst_n_heads
-
-        self.embed = nn.Parameter(torch.FloatTensor(gst_n_tokens, style_embedding_dim // gst_n_heads))
-        nn.init.normal_(self.embed, mean=0, std=0.5)
-
-        self.attention = MultiHeadAttention(d_q, d_k, style_embedding_dim, gst_n_heads)
-
-    def forward(self, inputs):
-        N = inputs.size(0)
-
-        queries = inputs.unsqueeze(1)                          # [N, 1, style_embedding_size//2]
-        keys = F.tanh(self.embed)
-        keys = keys.unsqueeze(0).expand(N, -1, -1)             # [N, gst_n_tokens, style_embedding_size//gst_n_heads]
-
-        style_embedding = self.attention(queries, keys, keys)  # [N, 1, style_embedding_size]
-
-        return style_embedding
-
-
-class MultiHeadAttention(nn.Module):
-    """
-    input:
-        query [N, T_q, query_dim]
-        key   [N, T_k, key_dim]
-    output:
-        out   [N, T_q, num_units]
-    """
-    def __init__(self, query_dim, key_dim, num_units, num_heads):
-        super(MultiHeadAttention, self).__init__()
-
-        if key_dim % num_heads != 0:
-            raise ValueError("Key depth {} must be divisible by the number of "
-                             "attention heads {}".format(key_dim, num_heads))
-
-        self.num_units = num_units
-        self.num_heads = num_heads
-        self.query_scale = (key_dim//num_heads)**-0.5
-
-        self.query_linear = nn.Linear(query_dim, num_units, bias=False)
-        self.key_linear = nn.Linear(key_dim, num_units, bias=False)
-        self.value_linear = nn.Linear(key_dim, num_units, bias=False)
-        #self.output_linear = nn.Linear(key_dim, output_depth, bias=False)
-        #self.dropout = nn.Dropout(dropout)
-
-    def _split_heads(self, x):
-        """
-        Split x such to add an extra num_heads dimension
-        Input:
-            x: a Tensor with shape [batch_size, seq_len, depth]
-        Returns:
-            A Tensor with shape [batch_size, num_heads, seq_len, depth / num_heads]
-        """
-        if len(x.shape) != 3:
-            raise ValueError("x must have rank 3")
-
-        shape = x.shape
-        return x.view(shape[0], shape[1], self.num_heads, shape[2]//self.num_heads).permute(0, 2, 1, 3)
-
-    def _merge_heads(self, x):
-        """
-        Merge the extra num_heads into the last dimension
-        Input:
-            x: a Tensor with shape [batch_size, num_heads, seq_len, depth/num_heads]
-        Output:
-            A Tensor with shape [batch_size, seq_len, depth]
-        """
-        if len(x.shape) != 4:
-            raise ValueError("x must have rank 4")
-        shape = x.shape
-
-        return x.permute(0, 2, 1, 3).contiguous().\
-                view(shape[0], shape[2], shape[3] * self.num_heads)
-
-    def forward(self, queries, keys, values):
-        # Linear for Each
-        queries = self.query_linear(queries)                     # [N, T_q, num_units]
-        keys = self.key_linear(keys)                             # [N, T_k, num_units]
-        values = self.value_linear(values)                       # [N, T_k, num_units]
-
-        # Split into heads
-        queries = self._split_heads(queries)                     # [N, num_heads, T_q, num_units/num_heads]
-        keys = self._split_heads(keys)                           # [N, num_heads, T_k, num_units/num_heads]
-        values = self._split_heads(values)                       # [N, num_heads, T_k, num_units/num_heads]
-
-        # Scale queries
-        queries *= self.query_scale
-
-        # Combine queries and keys
-        logits = torch.matmul(queries, keys.permute(0, 1, 3, 2)) # [N, num_heads, T_q, T_k]
-
-        # Convert to probabilities
-        scores = F.softmax(logits, dim=-1)                       # [N, num_heads, T_q, T_k]
-
-        # Dropout
-        #scores = self.dropout(scores)
-
-        # Combine with values to get context
-        contexts = torch.matmul(scores, values)                  # [N, num_heads, T_q, num_units/num_heads]
-
-        # Merge heads
-        contexts = self._merge_heads(contexts)                   # [N, T_q, num_units]
-
-        # Linear to get output
-        # outputs = self.output_linear(contexts)
-        return contexts
-
-
 class Tacotron2(nn.Module):
     def __init__(self, mask_padding, n_mel_channels,
                  n_symbols, symbols_embedding_dim, n_speakers, speakers_embedding_dim,
@@ -720,14 +525,11 @@ class Tacotron2(nn.Module):
                  decoder_rnn_dim, prenet_dim, max_decoder_steps, gate_threshold,
                  p_attention_dropout, p_decoder_dropout,
                  postnet_embedding_dim, postnet_kernel_size,
-                 postnet_n_convolutions, decoder_no_early_stopping,
-                 gst_use, gst_n_tokens=None, gst_n_heads=None, style_embedding_dim=None, ref_enc_filters=None,
-                 ref_enc_kernel_size=None, ref_enc_stride=None, ref_enc_pad=None, ref_enc_gru_dim=None, **kwargs):
+                 postnet_n_convolutions, decoder_no_early_stopping, **kwargs):
         super(Tacotron2, self).__init__()
         self.mask_padding = mask_padding
         self.n_mel_channels = n_mel_channels
         self.n_frames_per_step = n_frames_per_step
-        self.gst_use = gst_use
 
         self.symbols_embedding = nn.Embedding(
             n_symbols, symbols_embedding_dim)
@@ -745,13 +547,6 @@ class Tacotron2(nn.Module):
                                encoder_kernel_size)
 
         encoder_and_speakers_embedding_dim = encoder_embedding_dim + speakers_embedding_dim
-
-        if gst_use:
-            encoder_and_speakers_embedding_dim += style_embedding_dim
-
-            self.gst = GST(n_mel_channels, style_embedding_dim,
-                           gst_n_tokens, gst_n_heads, ref_enc_filters, ref_enc_kernel_size,
-                           ref_enc_stride, ref_enc_pad, ref_enc_gru_dim)
 
         self.decoder = Decoder(n_mel_channels, n_frames_per_step,
                                encoder_and_speakers_embedding_dim, attention_dim,
@@ -799,35 +594,18 @@ class Tacotron2(nn.Module):
         inputs, input_lengths, targets, max_len, output_lengths, speaker_ids = inputs
         input_lengths, output_lengths = input_lengths.data, output_lengths.data
 
-        # Define output tokens:
-        outputs = []
-
         # Extract symbols embedding
         embedded_inputs = self.symbols_embedding(inputs).transpose(1, 2)
         # Get symbols encoder outputs
         encoder_outputs = self.encoder(embedded_inputs, input_lengths)
-
-        outputs.append(encoder_outputs)
 
         # Extract speaker embeddings
         speaker_ids = speaker_ids.unsqueeze(1)
         embedded_speakers = self.speakers_embedding(speaker_ids)
         embedded_speakers = embedded_speakers.expand(-1, max_len, -1)
 
-        outputs.append(embedded_speakers)
-
-        # GST
-        if self.gst_use:
-            # Get style tokens
-            ref_mels = targets
-            style_embeddings = self.gst(ref_mels)
-            style_embeddings = style_embeddings.expand(-1, max_len, -1)
-
-            outputs.append(style_embeddings)
-
-
-        # Combine symbols, style, and speaker embeddings
-        merged_outputs = torch.cat(outputs, -1)
+        # Combine symbols and speaker embeddings
+        merged_outputs = torch.cat([encoder_outputs, embedded_speakers], -1)
 
         mel_outputs, gate_outputs, alignments = self.decoder(
             merged_outputs, targets, memory_lengths=input_lengths)
@@ -839,37 +617,18 @@ class Tacotron2(nn.Module):
             [mel_outputs, mel_outputs_postnet, gate_outputs, alignments],
             output_lengths)
 
-    def infer(self, inputs, speaker_id, ref_mel=None, style_token=None):
-        # Outputs
-        outputs = []
-
+    def infer(self, inputs, speaker_id):
         # Get symbols encoder outputs
         embedded_inputs = self.symbols_embedding(inputs).transpose(1, 2)
         encoder_outputs = self.encoder.infer(embedded_inputs)
-        outputs.append(encoder_outputs)
 
         # Get speaker embedding
         speaker_id = speaker_id.unsqueeze(1)
         embedded_speaker = self.speakers_embedding(speaker_id)
         embedded_speaker = embedded_speaker.expand(-1, encoder_outputs.shape[1], -1)
-        outputs.append(embedded_speaker)
-
-        # Get style embeddings
-        if self.gst_use:
-            if ref_mel is not None:
-                style_embeddings = self.gst(ref_mel)
-                print('style_embeddings', style_embeddings.shape)
-                style_embeddings = style_embeddings.expand(-1, encoder_outputs.shape[1], -1)
-                print('style_embeddings exp.', style_embeddings.shape)
-                outputs.append(style_embeddings)
-
-            elif style_token is not None:
-                pass
-            else:
-                raise
 
         # Merge embeddings
-        merged_outputs = torch.cat(outputs, -1)
+        merged_outputs = torch.cat([encoder_outputs, embedded_speaker], -1)
 
         # Decode
         mel_outputs, gate_outputs, alignments = self.decoder.infer(
