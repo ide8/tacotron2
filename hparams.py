@@ -98,8 +98,8 @@ class PreprocessingConfig:
 	minimum_viable_dur = 0.05
 	N = 100000
 	output_directory = '/media/olga/b40f5f55-fcbc-4f51-a740-22ed42f6902c/Olga/tacotron2/proc'
-	data= [
-		(
+	data= [  # TODO: PEP8
+		(	 # TODO: Dicts instead to tuples
 			'/media/olga/b40f5f55-fcbc-4f51-a740-22ed42f6902c/Olga/tacotron2/linda_johnson',
 			0,
 			False
