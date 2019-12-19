@@ -1,42 +1,44 @@
-import os                                                 # TODO: Follow PEP8 suggestions from PyCharm
-import sys
-sys.path.append('/home/olga/Projects/tacotron2_waveglow_multispeaker_gst')               # TODO: Get rid of these paths
-sys.path.append('/home/olga/Projects/tacotron2_waveglow_multispeaker_gst/processing')
-sys.path.append('/home/olga/Projects/tacotron2_waveglow_multispeaker_gst/waveglow')
-import time
+import os
 import pathlib
-import librosa
-from tqdm import tqdm
-from shutil import copyfile
-from scipy.io import wavfile
+import time
 from multiprocessing import Pool
-from tacotron2.text import text_to_sequence
-import pandas as pd
+from shutil import copyfile
+
+import librosa
 import numpy as np
-from hparams import PreprocessingConfig   # TODO: Add 'as Config' and use Config.var in the code
+import pandas as pd
+from scipy.io import wavfile
+from tqdm import tqdm
+
+from hparams import PreprocessingConfig as Config
+from tacotron2.text import text_to_sequence
+
 np.random.seed(42)
-                                # TODO: Get rid of variables, take them directly from Config
-config=PreprocessingConfig()    # TODO: PreprocessingConfig is Static class, no need to init it
 
-SR=config.SR                     # TODO: PEP8: Spaces
-TOP_DB=config.TOP_DB
-limit_by=config.limit_by
-minimum_viable_dur=config.minimum_viable_dur
-N=config.N
-output_directory=config.output_directory
-data=config.data
 
-lines=[]
-def process(path, output_directory, speaker_name, speaker_id, process_audio=True):  # TODO: PEP8
-    with open(os.path.join(path, 'metadata.csv'), 'r') as file:   # TODO: Never shadow built-ins   # TODO: Add docstring
+def process(speaker_path, output_directory, speaker_name, speaker_id, process_audio=True):
+    """
+    Parses 'metadata.csv'.
+    Args:
+        speaker_path: path to the folder with raw data and file 'metadata.csv'
+        output_directory: path to where the processed data should be stored
+        speaker_name: e.g. 'linda_johnson'
+        speaker_id: e.d. 1
+        process_audio: flag where to trim and change format using ffmpeg comand
+
+    Returns:
+        files_to_process: list of tuples to be processed by mapper
+        new_lines: list with lines to form train and validation datasets
+
+    """
+    with open(os.path.join(speaker_path, 'metadata.csv'), 'r') as f:
         files_to_process = []
+        new_lines = []
         output_path = os.path.join(output_directory, speaker_name)
         output_audio_path = os.path.join(output_path, 'wavs')
-        inter_audio_path = os.path.join(output_path, 'wavs_inter')       # TODO: Name directory with '-' instead of '_'
         pathlib.Path(output_audio_path).mkdir(parents=True, exist_ok=True)
-        #pathlib.Path(inter_audio_path).mkdir(parents=True, exist_ok=True)  # TODO: Get rid of comments
 
-        for line in file:
+        for line in f:
             parts = line.strip().split('|')
             file_name = parts[0]
             text = parts[1]
@@ -45,29 +47,45 @@ def process(path, output_directory, speaker_name, speaker_id, process_audio=True
             if not file_name.endswith('.wav'):
                 file_name = file_name + '.wav'
 
-            input_file_path = os.path.join(path, 'wavs', file_name)
-            inter_file_path = os.path.join(inter_audio_path, file_name)
+            input_file_path = os.path.join(speaker_path, 'wavs', file_name)
             final_file_path = os.path.join(output_audio_path, file_name)
-            files_to_process.append((input_file_path, inter_file_path, final_file_path, process_audio, file_name, text, speaker_name)) # TODO: PEP8
+            files_to_process.append((input_file_path, final_file_path, process_audio, file_name, text, speaker_name))
             new_line = '|'.join([final_file_path, text, str(speaker_id)]) + '\n'
-            lines.append(new_line)
+            new_lines.append(new_line)
 
-        #with open(os.path.join(output_path, 'data.txt'), 'a+') as f:      # TODO: Get rid of comments
-        #    f.writelines(lines)
+    return files_to_process, new_lines
 
-    return files_to_process
 
-def mapper(job):                                                               # TODO: PEP8
-    fin, fint, fout, process_audio, file_name, text, speaker_name= job         # TODO: PEP8 and docstring
+def mapper(job):
+
+    """
+    Measures duration of audio and length of text.
+    If speaker_data['process_audio'] == True, trims audio file and  changes its format using ffmpeg.
+
+    Args:
+        job: list of tuples (
+             path to the audio file,
+            path where to put the processed audio file,
+            flag do or do not trimming and ffmpeg command,
+            name of audio file,
+            text description of audio,
+            name of speaker e.g. 'linda_johnson')
+
+    Returns: list of tuples (
+    path to processed audio file,
+    length of text description of audiofile,
+    duration of audio,
+    name of speaker)
+    """
+    fin, fout, process_audio, file_name, text, speaker_name = job
     seq = text_to_sequence(text, ['english_cleaners'])
-    data, _ = librosa.load(fin, sr=SR)
+    data, _ = librosa.load(fin, sr=Config.SR)
 
     if process_audio:
-        data, _ = librosa.effects.trim(data, top_db=TOP_DB)
-        dur_librosa=librosa.get_duration(data)
-        #wavfile.write(fint, SR, data)
-        wavfile.write(fin, SR, data)
-        command = "ffmpeg -y -i {} -acodec pcm_s16le -ac 1 -ar {} {} -nostats -loglevel 0".format(fin, SR, fout)
+        data, _ = librosa.effects.trim(data, top_db=Config.TOP_DB)
+        dur_librosa = librosa.get_duration(data)
+        wavfile.write(fin, Config.SR, data)
+        command = "ffmpeg -y -i {} -acodec pcm_s16le -ac 1 -ar {} {} -nostats -loglevel 0".format(fin, Config.SR, fout)
         os.system(command)
     else:
         dur_librosa = librosa.get_duration(data)
@@ -76,55 +94,64 @@ def mapper(job):                                                               #
     return fout, len(seq), dur_librosa, speaker_name
 
 
-def main(output_directory, data):                            # TODO: Never shadow outer scope
-    """                                                      # TODO: Fix docstring
-    Parse commandline arguments.
-    data: list of tuples (source_directory, speaker_id, process_audio_flag)
+def main(output_directory, data):
+    """
+    Args:
+        output_directory: path to folder with processed data for all speakers
+        data: list of dictionaries with speaker's data (comes from Config)
     """
     jobs = []
-    for source_directory, speaker_id, process_audio_flag in tqdm(data):
-        for path, dirs, files in os.walk(source_directory):
+    lines = []
+    for speaker_data in tqdm(data):
+        for path, dirs, files in os.walk(speaker_data['path']):
             if 'wavs' in dirs and 'metadata.csv' in files:
-                speaker_name = source_directory.split('/')[-1]
-                sub_jobs = process(path, output_directory, speaker_name, speaker_id, process_audio_flag)
+                speaker_name = speaker_data['path'].split('/')[-1]
+                sub_jobs, sub_lines = process(
+                    path, output_directory, speaker_name,
+                    speaker_data['speaker_id'], speaker_data['process_audio'])
                 jobs += sub_jobs
+                for ln in sub_lines:
+                    lines.append(ln)
     print('Files to convert:', len(jobs))
     time.sleep(5)
 
     with Pool(42) as p:
-       results=p.map(mapper, jobs)                       # TODO: PEP8
-    distribution=pd.DataFrame({
+        results = p.map(mapper, jobs)
+
+    distribution = pd.DataFrame({
         'path': [r[0] for r in results],
         'text': [r[1] for r in results],
         'dur': [r[2] for r in results],
         'speaker': [r[3] for r in results]
-    })
-    speakers=list(distribution['speaker'].unique())    # TODO: PEP8
+         })
+    speakers = list(distribution['speaker'].unique())
 
-    if limit_by in speakers:
-        #speakers.remove(limit_by)                      # TODO: Get rid of comments
-        limiting_distribution=distribution[distribution['speaker']==limit_by] # TODO: PEP8
-        mind=min(limiting_distribution['dur'])
+    maxt = Config.text_limit
+    maxd = Config.dur_limit
+    if Config.limit_by in speakers:
+        limiting_distribution = distribution[distribution['speaker'] == Config.limit_by]
+        mind = min(limiting_distribution['dur'])
         maxd = max(limiting_distribution['dur'])
         mint = min(limiting_distribution['text'])
         maxt = max(limiting_distribution['text'])
-        print('Min {} text: {}'.format(limit_by, mint))
-        print('Max {} text: {}'.format(limit_by, maxt))
-        print('Min {} dur: {}'.format(limit_by, mind))
-        print('Max {} dur: {}'.format(limit_by, maxd))
+        print('Min {} text: {}'.format(Config.limit_by, mint))
+        print('Max {} text: {}'.format(Config.limit_by, maxt))
+        print('Min {} dur: {}'.format(Config.limit_by, mind))
+        print('Max {} dur: {}'.format(Config.limit_by, maxd))
         print('-----------------------------------------')
 
     train_lines = []
     val_lines = []
     for speaker in speakers:
-        df=distribution[distribution['speaker']==speaker]   # TODO: PEP8
-        df=df[(df['text']<=maxt) & (df['text']>=1) & (df['dur']<=maxd) & (df['dur']>=minimum_viable_dur)] # TODO: PEP8
+        df = distribution[distribution['speaker'] == speaker]
+        df = df[(df['text'] <= maxt) & (df['text'] >= 1) &
+                (df['dur'] <= maxd) & (df['dur'] >= Config.minimum_viable_dur)]
         msk = np.random.rand(len(df)) < 0.95
         train = df[msk]
         val = df[~msk]
 
-        if len(train) > N:
-            train = train.sample(N, random_state=42)
+        if len(train) > Config.N:
+            train = train.sample(Config.N, random_state=42)
 
         train_set = train['path'].unique()
         val_set = val['path'].unique()
@@ -140,12 +167,11 @@ def main(output_directory, data):                            # TODO: Never shado
                 val_lines.append(line)
 
     with open(os.path.join(output_directory, 'train.txt'), 'w') as f:
-            f.writelines(train_lines)  # TODO: PEP8
+        f.writelines(train_lines)
     with open(os.path.join(output_directory, 'val.txt'), 'w') as f:
-            f.writelines(val_lines)  # TODO: PEP8
+        f.writelines(val_lines)
     print('Done!')
 
-if __name__ == '__main__':                                          # TODO: PEP8
-    main(output_directory, data)
 
-
+if __name__ == '__main__':
+    main(Config.output_directory, Config.data)

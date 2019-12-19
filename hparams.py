@@ -92,69 +92,63 @@ class Hyperparameters():
 class PreprocessingConfig:
 	code_path = '/workspace/code/gst'
 	OUTPUT_DIRECTORY = '/workspace/training_data'
-	SR = 22050
-	TOP_DB = 40
-	limit_by = 'linda_johnson'
-	minimum_viable_dur = 0.05
-	N = 100000
+	SR = 22050                                   # sampling ratio for audio processing
+	TOP_DB = 40                                  # level to trim audio
+	limit_by = 'linda_johnson'                   # speaker to measure text_limit, dur_limit
+	minimum_viable_dur = 0.05                    # min duration of audio
+	text_limit = None                            # max text length (used by default)
+	dur_limit = None                             # max audio duration (used by default)
+	N = 100000                                   # max size of training dataset
 	output_directory = '/media/olga/b40f5f55-fcbc-4f51-a740-22ed42f6902c/Olga/tacotron2/proc'
-	data= [  # TODO: PEP8
-		(	 # TODO: Dicts instead to tuples
-			'/media/olga/b40f5f55-fcbc-4f51-a740-22ed42f6902c/Olga/tacotron2/linda_johnson',
-			0,
-			False
-		),
-		(
-			'/media/olga/b40f5f55-fcbc-4f51-a740-22ed42f6902c/Olga/tacotron2/scarjo_the_dive_descript_grouped_50mil',
-			1,
-			True
-		),
-		(
-			'/media/olga/b40f5f55-fcbc-4f51-a740-22ed42f6902c/Olga/tacotron2/scarjo_the_dive_descript_ungrouped',
-			1,
-			True
-		)
-		# (
-		#     '/workspace/data/gcp/samantha_default',
-		#     1,
-		#     True
-		#     True
-		# ),
-		# (
-		#     '/workspace/data/scarjo_her',
-		#     1,
-		#     True,
-		#     True
-		# ),
-		# (
-		#     '/workspace/data/aws/dataset/blizzard_2013',
-		#     2,
-		#     True
-		#     True
-		# ),
-		# (
-		#     '/workspace/data/aws/dataset/en_US/by_book/female/judy_bieber',
-		#     3,
-		#     True
-		#     True
-		# ),
-		# (
-		#     '/workspace/data/aws/dataset/en_US/by_book/female/mary_ann',
-		#     4,
-		#     True
-		#     True
-		# ),
-		# (
-		#     '/workspace/data/aws/dataset/en_UK/by_book/female/elizabeth_klett',
-		#     5,
-		#     True
-		#     True
-		# ),
-		# (
-		#     '/workspace/data/aws/dataset/en_US/by_book/male/elliot_miller',
-		#     6,
-		#     True
-		#     True
-		# )
+	data = [  # TODO: PEP8
+		{	 # TODO: Dicts instead to tuples
+			'path': '/media/olga/b40f5f55-fcbc-4f51-a740-22ed42f6902c/Olga/tacotron2/linda_johnson',
+			'speaker_id': 0,
+			'process_audio': False
+		},
+		{
+			'path': '/media/olga/b40f5f55-fcbc-4f51-a740-22ed42f6902c/Olga/tacotron2/scarjo_the_dive_descript_grouped_50mil',
+			'speaker_id': 1,
+			'process_audio': True
+		},
+		{
+			'path': '/media/olga/b40f5f55-fcbc-4f51-a740-22ed42f6902c/Olga/tacotron2/scarjo_the_dive_descript_ungrouped',
+			'speaker_id': 1,
+			'process_audio': True
+		}
+		# {
+		#     'path':'/workspace/data/gcp/samantha_default',
+		#     'speaker_id':1,
+		#     'process_audio':True
+		# },
+		# {
+		#     'path':'/workspace/data/scarjo_her',
+		#     'speaker_id':1,
+		#     'process_audio':True,
+		# },
+		# {
+		#     'path':'/workspace/data/aws/dataset/blizzard_2013',
+		#     'speaker_id':2,
+		#     'process_audio':True
+		# },
+		# {
+		#     'path':'/workspace/data/aws/dataset/en_US/by_book/female/judy_bieber',
+		#     'speaker_id':3,
+		#     'process_audio':True
+		# },
+		# {
+		#     'path':'/workspace/data/aws/dataset/en_US/by_book/female/mary_ann',
+		#     'speaker_id':4,
+		#     'process_audio':True
+		# },
+		# {
+		#     'path':'/workspace/data/aws/dataset/en_UK/by_book/female/elizabeth_klett',
+		#     'speaker_id':5,
+		#     'process_audio':True
+		# },
+		# {
+		#     'path':'/workspace/data/aws/dataset/en_US/by_book/male/elliot_miller',
+		#     'speaker_id':6,
+		#     'process_audio':True
+		# }
 	]
-
