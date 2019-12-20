@@ -74,15 +74,15 @@ class Config:
 
     ### Script args
     model_name = "Tacotron2"
-    output_directory = "/workspace/output/vlad_test"                                                                    # Directory to save checkpoints
+    output_directory = "/logs"                                                                                          # Directory to save checkpoints
     log_file = "nvlog.json"                                                                                             # Filename for logging
 
     anneal_steps = [500, 1000, 1500]                                                                                    # Epochs after which decrease learning rate
     anneal_factor = 0.1                                                                                                 # Factor for annealing learning rate
 
-    tacotron2_checkpoint = '/workspace/output/new_try_2/sm_from_lj_800_anneal/checkpoint_Tacotron2_1900'                # Path to pre-trained Tacotron2 checkpoint for sample generation
-    waveglow_checkpoint = '/workspace/output/sm_wg/checkpoint_WaveGlow_1750'                                            # Path to pre-trained WaveGlow checkpoint for sample generation
-    restore_from = '/workspace/output/new_try_2/sm_from_lj_800_anneal/checkpoint_Tacotron2_1900'                        # Checkpoint path to restore from
+    tacotron2_checkpoint = '/data/pretrained/t2_fp32_torch'   # Path to pre-trained Tacotron2 checkpoint for sample generation
+    waveglow_checkpoint = '/data/pretrained/wg_fp32_torch'    # Path to pre-trained WaveGlow checkpoint for sample generation
+    restore_from = ''                                         # Checkpoint path to restore from
 
     # Training params
     epochs = 1910                                             # Number of total epochs to run
@@ -104,8 +104,8 @@ class Config:
     # Dataset
     load_mel_from_dist = False                                # Loads mel spectrograms from disk instead of computing them on the fly
     text_cleaners = ['english_cleaners']                      # Type of text cleaners for input text
-    training_files = '/workspace/training_data/train.txt'     # Path to training filelist
-    validation_files = '/workspace/training_data/val.txt'     # Path to validation filelist
+    training_files = '/data/proc/train.txt'                   # Path to training filelist
+    validation_files = '/data/proc/val.txt'                   # Path to validation filelist
 
     # Distributed
     dist_url = 'tcp://localhost:23456'                        # Url used to set up distributed training
