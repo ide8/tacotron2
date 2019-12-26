@@ -33,21 +33,21 @@ from tacotron2.text import text_to_sequence
 np.random.seed(42)
 
 emotions_dict = {
-    'neutral_normal': 0,
-    'calm_normal': 1,
-    'calm_strong': 2,
-    'happy_normal': 3,
-    'happy_strong': 4,
-    'sad_normal': 5,
-    'sad_strong': 6,
-    'angry_normal': 7,
-    'angry_strong': 8,
-    'fearful_normal': 9,
-    'fearful_strong': 10,
-    'disgust_normal': 11,
-    'disgust_strong': 12,
-    'surprised_normal': 13,
-    'surprised_strong': 14
+        'neutral-normal': 0,
+        'calm-normal': 1,
+        'calm-strong': 2,
+        'happy-normal': 3,
+        'happy-strong': 4,
+        'sad-normal': 5,
+        'sad-strong': 6,
+        'angry-normal': 7,
+        'angry-strong': 8,
+        'fearful-normal': 9,
+        'fearful-strong': 10,
+        'disgust-normal': 11,
+        'disgust-strong': 12,
+        'surprised-normal': 13,
+        'surprised-strong': 14
     }
 
 

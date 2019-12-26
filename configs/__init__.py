@@ -68,10 +68,6 @@ class Config:
         n_channels=512                            # Number of channels in WN
     )
 
-    ### LM Parameters
-    use_lm = False
-    language_model = 'gpt-2'
-
     ### Script args
     model_name = "Tacotron2"
     output_directory = "/logs"                                                                                          # Directory to save checkpoints
@@ -134,7 +130,7 @@ class PreprocessingConfig:
     n = 100000                                   # max size of training dataset per speaker
     save_distribution = True                     # save distribution.csv to output_directory
     save_data_txt = True                         # save data.txt to output_directory
-    load_data_and_distributions = True          # load data.txt and distribution.txt. Should be in output_directory
+    load_data_and_distributions = True           # load data.txt and distribution.txt. Should be in output_directory
 
     output_directory = '/train'
     data = [
@@ -144,19 +140,18 @@ class PreprocessingConfig:
             'process_audio': False,
             'emotion': False
         },
-        #
-        #{
+        # {
         #    'path': '/data/raw-data/scarjo_the_dive_descript_grouped_50mil',
         #    'speaker_id': 1,
         #    'process_audio': True,
         #    'emotion': False
-        #},
-        #{
+        # },
+        # {
         #    'path': '/data/raw-data/scarjo_the_dive_descript_ungrouped',
         #    'speaker_id': 1,
         #    'process_audio': True,
         #    'emotion': False
-        #},
+        # },
         {
             'path': '/data/raw-data/Mellisa',
             'speaker_id': 2,

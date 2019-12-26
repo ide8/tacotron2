@@ -68,10 +68,6 @@ class Config:
         n_channels=512                            # Number of channels in WN
     )
 
-    ### LM Parameters
-    use_lm = False
-    language_model = 'gpt-2'
-
     ### Script args
     model_name = "Tacotron2"
     output_directory = "/logs"                                                                                          # Directory to save checkpoints
@@ -82,7 +78,7 @@ class Config:
 
     tacotron2_checkpoint = '/data/pretrained/t2_fp32_torch'   # Path to pre-trained Tacotron2 checkpoint for sample generation
     waveglow_checkpoint = '/data/pretrained/wg_fp32_torch'    # Path to pre-trained WaveGlow checkpoint for sample generation
-    restore_from = ''                                         # Checkpoint path to restore from
+    restore_from = '/data/pretrained/t2_fp32_torch'                                         # Checkpoint path to restore from
 
     # Training params
     epochs = 1910                                             # Number of total epochs to run
@@ -98,16 +94,14 @@ class Config:
     learning_rate = 1e-3                                      # Learning rate
     weight_decay = 1e-6                                       # Weight decay
     grad_clip_thresh = 1.0                                    # Clip threshold for gradients
-    batch_size = 64                                           # Batch size per GPU
+    batch_size = 42                                          # Batch size per GPU
     grad_clip = 5.0                                           # Enables gradient clipping and sets maximum gradient norm value
-
-    # Dataset
+   # Dataset
     load_mel_from_dist = False                                # Loads mel spectrograms from disk instead of computing them on the fly
     text_cleaners = ['english_cleaners']                      # Type of text cleaners for input text
-    training_files = '/data/proc/train.txt'                   # Path to training filelist
-    validation_files = '/data/proc/val.txt'                   # Path to validation filelist
+    training_files = '/train/train.txt'                   # Path to training filelist
+    validation_files = '/train/val.txt'                   # Path to validation filelist
 
-    # Distributed
     dist_url = 'tcp://localhost:23456'                        # Url used to set up distributed training
     group_name = "group_name"                                 # Distributed group name
     dist_backend = "nccl"                                     # Distributed run backend
@@ -134,22 +128,36 @@ class PreprocessingConfig:
     text_limit = None                            # max text length (used by default)
     dur_limit = None                             # max audio duration (used by default)
     n = 100000                                   # max size of training dataset per speaker
+    save_distribution = True                     # save distribution.csv to output_directory
+    save_data_txt = True                         # save data.txt to output_directory
+    load_data_and_distributions = True          # load data.txt and distribution.txt. Should be in output_directory
 
-    output_directory = '/media/olga/b40f5f55-fcbc-4f51-a740-22ed42f6902c/Olga/tacotron2/proc'
+    output_directory = '/train'
     data = [
         {
-            'path': '/media/olga/b40f5f55-fcbc-4f51-a740-22ed42f6902c/Olga/tacotron2/linda_johnson',
+            'path': '/data/raw-data/linda_johnson',
             'speaker_id': 0,
-            'process_audio': False
+            'process_audio': False,
+            'emotion': False
         },
+        #
+        #{
+        #    'path': '/data/raw-data/scarjo_the_dive_descript_grouped_50mil',
+        #    'speaker_id': 1,
+        #    'process_audio': True,
+        #    'emotion': False
+        #},
+        #{
+        #    'path': '/data/raw-data/scarjo_the_dive_descript_ungrouped',
+        #    'speaker_id': 1,
+        #    'process_audio': True,
+        #    'emotion': False
+        #},
         {
-            'path': '/media/olga/b40f5f55-fcbc-4f51-a740-22ed42f6902c/Olga/tacotron2/scarjo_the_dive_descript_grouped_50mil',
-            'speaker_id': 1,
-            'process_audio': True
+            'path': '/data/raw-data/Mellisa',
+            'speaker_id': 2,
+            'process_audio': True,
+            'emotion': True
         },
-        {
-            'path': '/media/olga/b40f5f55-fcbc-4f51-a740-22ed42f6902c/Olga/tacotron2/scarjo_the_dive_descript_ungrouped',
-            'speaker_id': 1,
-            'process_audio': True
-        }
     ]
+
