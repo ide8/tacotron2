@@ -19,7 +19,7 @@ parser.add_argument('--exp', type=str, default=None, required=True, help='Name o
 args = parser.parse_args()
 
 # Prepare config
-shutil.copyfile(os.path.join('configs', 'experiments', args.exp + '.py'), os.path.join('configs', '__init__.py'))
+# shutil.copyfile(os.path.join('configs', 'experiments', args.exp + '.py'), os.path.join('configs', '__init__.py'))
 
 # Reload Config
 configs = importlib.import_module('configs')
@@ -32,8 +32,26 @@ from tacotron2.text import text_to_sequence
 
 np.random.seed(42)
 
+emotions_dict = {
+    'neutral_normal': 0,
+    'calm_normal': 1,
+    'calm_strong': 2,
+    'happy_normal': 3,
+    'happy_strong': 4,
+    'sad_normal': 5,
+    'sad_strong': 6,
+    'angry_normal': 7,
+    'angry_strong': 8,
+    'fearful_normal': 9,
+    'fearful_strong': 10,
+    'disgust_normal': 11,
+    'disgust_strong': 12,
+    'surprised_normal': 13,
+    'surprised_strong': 14
+    }
 
-def process(speaker_path, output_directory, speaker_name, speaker_id, process_audio=True):
+
+def process(speaker_path, output_directory, speaker_name, speaker_id, process_audio=True, emotion_flag=False):
     """
     Parses 'metadata.csv'.
     Args:
@@ -54,20 +72,27 @@ def process(speaker_path, output_directory, speaker_name, speaker_id, process_au
         output_path = os.path.join(output_directory, speaker_name)
         output_audio_path = os.path.join(output_path, 'wavs')
         pathlib.Path(output_audio_path).mkdir(parents=True, exist_ok=True)
+        emotion = "neutral_normal"
 
         for line in f:
             parts = line.strip().split('|')
             file_name = parts[0]
             text = parts[1]
             if len(parts) == 3:
-                text = parts[2]
+                if emotion_flag:
+                    text = parts[1]
+                    emotion = parts[2]
+                else:
+                    text = parts[2]
+
             if not file_name.endswith('.wav'):
                 file_name = file_name + '.wav'
 
             input_file_path = os.path.join(speaker_path, 'wavs', file_name)
             final_file_path = os.path.join(output_audio_path, file_name)
-            files_to_process.append((input_file_path, final_file_path, process_audio, file_name, text, speaker_name))
-            new_line = '|'.join([final_file_path, text, str(speaker_id)]) + '\n'
+            files_to_process.append((input_file_path, final_file_path, process_audio,
+                                     file_name, text, speaker_name, emotion))
+            new_line = '|'.join([final_file_path, text, str(speaker_id), str(emotions_dict[emotion])]) + '\n'
             new_lines.append(new_line)
 
     return files_to_process, new_lines
@@ -94,21 +119,21 @@ def mapper(job):
     duration of audio,
     name of speaker)
     """
-    fin, fout, process_audio, file_name, text, speaker_name = job
+    fin, fout, process_audio, file_name, text, speaker_name, emotion = job
     seq = text_to_sequence(text, ['english_cleaners'])
     data, _ = librosa.load(fin, sr=Config.sr)
 
     if process_audio:
         data, _ = librosa.effects.trim(data, top_db=Config.top_db)
         dur_librosa = librosa.get_duration(data)
-        wavfile.write(fin, Config.sr, data)
-        command = "ffmpeg -y -i {} -acodec pcm_s16le -ac 1 -ar {} {} -nostats -loglevel 0".format(fin, Config.sr, fout)
+        wavfile.write(fout, Config.sr, data)
+        command = "ffmpeg -y -i {} -acodec pcm_s16le -ac 1 -ar {} {} -nostats -loglevel 0".format(fout, Config.sr, fout)
         os.system(command)
     else:
         dur_librosa = librosa.get_duration(data)
         copyfile(fin, fout)
 
-    return fout, len(seq), dur_librosa, speaker_name
+    return fout, len(seq), dur_librosa, speaker_name, emotion
 
 
 def main(output_directory, data):
@@ -117,32 +142,48 @@ def main(output_directory, data):
         output_directory: path to folder with processed data for all speakers
         data: list of dictionaries with speaker's data (comes from Config)
     """
-    jobs = []
     lines = []
-    for speaker_data in tqdm(data):
-        for path, dirs, files in os.walk(speaker_data['path']):
-            if 'wavs' in dirs and 'metadata.csv' in files:
-                speaker_name = speaker_data['path'].split('/')[-1]
-                sub_jobs, sub_lines = process(
-                    path, output_directory, speaker_name,
-                    speaker_data['speaker_id'], speaker_data['process_audio'])
-                jobs += sub_jobs
-                for ln in sub_lines:
-                    lines.append(ln)
-    print('Files to convert:', len(jobs))
-    time.sleep(5)
+    if Config.load_data_and_distributions:
+        with open(os.path.join(Config.output_directory, 'data.txt'), 'r') as f:
+            for line in f:
+                lines.append(line)
+        distribution = pd.read_csv(os.path.join(Config.output_directory, 'distribution.csv'))
+        print('Loaded data.txt and distribution.csv')
 
-    with Pool(Config.cpus) as p:
-        results = p.map(mapper, jobs)
+    else:
+        jobs = []
+        for speaker_data in tqdm(data):
+            for path, dirs, files in os.walk(speaker_data['path']):
+                if 'wavs' in dirs and 'metadata.csv' in files:
+                    speaker_name = speaker_data['path'].split('/')[-1]
+                    sub_jobs, sub_lines = process(
+                        path, output_directory, speaker_name,
+                        speaker_data['speaker_id'], speaker_data['process_audio'], speaker_data['emotion'])
+                    jobs += sub_jobs
+                    for ln in sub_lines:
+                        lines.append(ln)
+        print('Files to convert:', len(jobs))
+        time.sleep(5)
 
-    distribution = pd.DataFrame({
-        'path': [r[0] for r in results],
-        'text': [r[1] for r in results],
-        'dur': [r[2] for r in results],
-        'speaker': [r[3] for r in results]
-    })
+        with Pool(Config.cpus) as p:
+            results = p.map(mapper, jobs)
+
+        distribution = pd.DataFrame({
+            'path': [r[0] for r in results],
+            'text': [r[1] for r in results],
+            'dur': [r[2] for r in results],
+            'speaker': [r[3] for r in results],
+            'emotion': [r[4] for r in results]
+        })
+
+        if Config.save_distribution:
+            distribution.to_csv(os.path.join(Config.output_directory, "distribution.csv"))
+
+        if Config.save_data_txt:
+            with open(os.path.join(Config.output_directory, 'data.txt'), 'a+') as f:
+                f.writelines(lines)
+
     speakers = list(distribution['speaker'].unique())
-
     maxt = Config.text_limit
     maxd = Config.dur_limit
 
@@ -178,7 +219,7 @@ def main(output_directory, data):
         print('-----------------------------------------')
 
         for line in lines:
-            file_path, _, _ = line.strip().split('|')
+            file_path, _, _, _ = line.strip().split('|')
             if (file_path in train_set) & (line not in train_lines):
                 train_lines.append(line)
             if (file_path in val_set) & (line not in val_lines):
