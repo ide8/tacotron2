@@ -63,6 +63,7 @@ shutil.copyfile(os.path.join('configs', 'experiments', args.exp + '.py'), os.pat
 configs = importlib.import_module('configs')
 configs = importlib.reload(configs)
 Config = configs.Config
+PConfig = configs.PreprocessingConfig
 
 # Config dependent imports
 from tacotron2.text import text_to_sequence
@@ -82,14 +83,11 @@ def reduce_tensor(tensor, num_gpus):
     return rt
 
 
-def init_distributed(dist_backend, dist_url, world_size, rank, group_name):
+def init_distributed(world_size, rank):
     """
 
-    :param dist_backend:
-    :param dist_url:
     :param world_size:
     :param rank:
-    :param group_name:
     :return:
     """
     assert torch.cuda.is_available(), 'Distributed mode requires CUDA.'
@@ -100,8 +98,8 @@ def init_distributed(dist_backend, dist_url, world_size, rank, group_name):
 
     # Initialize distributed communication
     dist.init_process_group(
-        backend=dist_backend, init_method=dist_url,
-        world_size=world_size, rank=rank, group_name=group_name)
+        backend=Config.dist_backend, init_method=Config.dist_url,
+        world_size=world_size, rank=rank, group_name=Config.group_name)
 
     print('Done initializing distributed')
 
@@ -151,23 +149,22 @@ def save_checkpoint(model, epoch, config, optimizer, filepath):
                 'optimizer_state_dict': optimizer.state_dict()}, filepath)
 
 
-def save_sample(model_name, model_path, tacotron2_path, waveglow_path, phrases):
+def save_sample(model_name, model_path):
     """
 
     :param model_name:
     :param model_path:
-    :param tacotron2_path:
-    :param waveglow_path:
-    :param phrases:
     :return:
     """
     if model_name == 'Tacotron2':
-        assert waveglow_path is not None, 'WaveGlow checkpoint path is missing, could not generate sample'
+        assert Config.waveglow_checkpoint is not None, 'WaveGlow checkpoint path is missing, could not generate sample'
         tacotron2_path = model_path
+        waveglow_path = Config.waveglow_checkpoint
 
     elif model_name == 'WaveGlow':
-        assert tacotron2_path is not None, 'Tacotron2 checkpoint path is missing, could not generate sample'
+        assert Config.tacotron2_checkpoint is not None, 'Tacotron2 checkpoint path is missing, could not generate sample'
         waveglow_path = model_path
+        tacotron2_path = Config.tacotron2_checkpoint
 
     else:
         raise NotImplementedError('Unknown model requested: {}'.format(model_name))
@@ -176,19 +173,27 @@ def save_sample(model_name, model_path, tacotron2_path, waveglow_path, phrases):
     wg, _, _, _ = restore_checkpoint(waveglow_path, 'WaveGlow')
 
     with evaluating(t2), evaluating(wg), torch.no_grad():
-        for speaker_id in phrases['speaker_ids']:
-            for text in phrases['texts']:
-                inputs = np.array(text_to_sequence(text, ['english_cleaners']))[None, :]
-                inputs = torch.from_numpy(inputs).to(device='cuda', dtype=torch.int64)
+        for speaker_id in Config.phrases['speaker_ids']:
+            for text in Config.phrases['texts']:
+                inp = np.array(text_to_sequence(text, ['english_cleaners']))[None, :]
+                inp = torch.from_numpy(inp).to(device='cuda', dtype=torch.int64)
 
                 s_id = torch.IntTensor([speaker_id]).cuda().long()
 
-                _, mel, _, _ = t2.infer(inputs, s_id)
-                audio = wg.infer(mel)
+                if Config.use_emotions:
+                    for emotion, emotion_id in PConfig.emo_id_map.items():
+                        e_id = torch.IntTensor([emotion_id]).cuda().long()
+                        _, mel, _, _ = t2.infer(inp, s_id, e_id)
+                        audio = wg.infer(mel)
+                        audio_numpy = audio[0].data.cpu().numpy()
 
-                audio_numpy = audio[0].data.cpu().numpy()
+                        yield speaker_id, emotion, audio_numpy
+                else:
+                    _, mel, _, _ = t2.infer(inp, s_id)
+                    audio = wg.infer(mel)
+                    audio_numpy = audio[0].data.cpu().numpy()
 
-                yield speaker_id, audio_numpy
+                    yield speaker_id, None, audio_numpy
 
 # adapted from: https://discuss.pytorch.org/t/opinion-eval-should-be-a-context-manager/18998/3
 # Following snippet is licensed under MIT license
@@ -307,11 +312,7 @@ def main():
     distributed_run = args.world_size > 1
 
     if distributed_run:
-        init_distributed(dist_backend=Config.dist_backend,
-                         dist_url=Config.dist_url,
-                         world_size=args.world_size,
-                         rank=args.rank,
-                         group_name=Config.group_name)
+        init_distributed(args.world_size, args.rank)
 
     # Restore training from checkpoint
     if Config.restore_from:
@@ -466,15 +467,12 @@ def main():
                 save_checkpoint(model, epoch, model_config, optimizer, checkpoint_path)
 
                 # Save test audio files to tensorboard
-                for i, (speaker_id, sample) in enumerate(save_sample(model_name,
-                                                         checkpoint_path,
-                                                         Config.tacotron2_checkpoint,
-                                                         Config.waveglow_checkpoint,
-                                                         Config.phrases)):
+                for i, (speaker_id, emotion, sample) in enumerate(save_sample(model_name, checkpoint_path)):
+                    tag = 'epoch_{}/infer:speaker_{}_sample_{}'.format(epoch, speaker_id, i)
+                    tag = '{}_emotion_{}'.format(tag, emotion) if Config.use_emotions else tag
 
-                    tensorboard_writer.add_audio(tag='epoch_{}/infer:speaker_{}_sample_{}'.format(epoch, speaker_id, i),
-                                                 snd_tensor=sample,
-                                                 sample_rate=Config.sampling_rate)
+                    tensorboard_writer.add_audio(tag=tag, snd_tensor=sample, sample_rate=Config.sampling_rate)
+
     tensorboard_writer.close()
 
 

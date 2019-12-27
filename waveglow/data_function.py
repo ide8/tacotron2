@@ -39,7 +39,6 @@ class MelAudioLoader(torch.utils.data.Dataset):
 
     def __init__(self, audiopaths_and_text, filter_length, hop_length, win_length,
                  n_mel_channels, sampling_rate, mel_fmin, mel_fmax, segment_length, max_wav_value):
-
         self.audiopaths_and_text = load_filepaths_and_text(audiopaths_and_text)
         self.max_wav_value = max_wav_value
         self.sampling_rate = sampling_rate

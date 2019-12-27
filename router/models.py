@@ -32,29 +32,8 @@ from waveglow.model import WaveGlow
 from configs import Config
 
 
-def parse_model_args(model_name, parser, add_help=False):
-    if model_name == 'Tacotron2':
-        from tacotron2.arg_parser import parse_tacotron2_args
-        return parse_tacotron2_args(parser, add_help)
-    if model_name == 'WaveGlow':
-        from waveglow.arg_parser import parse_waveglow_args
-        return parse_waveglow_args(parser, add_help)
-    else:
-        raise NotImplementedError(model_name)
-
-
-def batchnorm_to_float(module):
-    """Converts batch norm to FP32"""
-    if isinstance(module, torch.nn.modules.batchnorm._BatchNorm):
-        module.float()
-    for child in module.children():
-        batchnorm_to_float(child)
-    return module
-
-
 def get_model(model_name, model_config, to_cuda):
     """ Code chooses a model based on name"""
-    model = None
     if model_name == 'Tacotron2':
         model = Tacotron2(**model_config)
     elif model_name == 'WaveGlow':
@@ -80,6 +59,10 @@ def get_model_config(model_name):
             # speakers
             n_speakers=Config.n_speakers,
             speakers_embedding_dim=Config.speakers_embedding_dim,
+            # emotions
+            use_emotions=Config.use_emotions,
+            n_emotions=Config.n_emotions,
+            emotions_embedding_dim=Config.emotions_embedding_dim,
             # encoder
             encoder_kernel_size=Config.encoder_kernel_size,
             encoder_n_convolutions=Config.encoder_n_convolutions,

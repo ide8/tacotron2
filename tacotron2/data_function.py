@@ -41,27 +41,31 @@ class TextMelLoader(torch.utils.data.Dataset):
         3) computes mel-spectrograms from audio files.
     """
     def __init__(self, audiopaths_and_text, text_cleaners, load_mel_from_disk, max_wav_value, sampling_rate,
-                 filter_length, hop_length, win_length, n_mel_channels, mel_fmin, mel_fmax):
+                 filter_length, hop_length, win_length, n_mel_channels, mel_fmin, mel_fmax, use_emotions=False):
 
-        self.audiopaths_and_text = load_filepaths_and_text(audiopaths_and_text)
+
+        self.audiopaths_and_text = load_filepaths_and_text(audiopaths_and_text, use_emotions)
         self.text_cleaners = text_cleaners
         self.max_wav_value = max_wav_value
         self.sampling_rate = sampling_rate
         self.load_mel_from_disk = load_mel_from_disk
+        self.use_emotions = use_emotions
 
-        self.stft = layers.TacotronSTFT(filter_length, hop_length, win_length, n_mel_channels, sampling_rate,
-                                        mel_fmin, mel_fmax)
+        self.stft = layers.TacotronSTFT(filter_length, hop_length, win_length, n_mel_channels,
+                                        sampling_rate, mel_fmin, mel_fmax)
         random.seed(1234)
         random.shuffle(self.audiopaths_and_text)
 
-    def get_mel_text_speaker(self, audiopath_and_text):
+    def get_row_data_with_mel(self, audiopath_and_text):
         # separate filename and text
-        audiopath, text, speaker_id = audiopath_and_text[0], audiopath_and_text[1], audiopath_and_text[2]
+        audiopath, text, speaker_id, emotion_id = \
+            audiopath_and_text[0], audiopath_and_text[1], audiopath_and_text[2], audiopath_and_text[3]
+
         len_text = len(text)
         text = self.get_text(text)
         mel = self.get_mel(audiopath)
 
-        return text, mel, len_text, speaker_id
+        return text, mel, len_text, speaker_id, emotion_id
 
     def get_mel(self, filename):
         if not self.load_mel_from_disk:
@@ -87,13 +91,13 @@ class TextMelLoader(torch.utils.data.Dataset):
         return text_norm
 
     def __getitem__(self, index):
-        return self.get_mel_text_speaker(self.audiopaths_and_text[index])
+        return self.get_row_data_with_mel(self.audiopaths_and_text[index])
 
     def __len__(self):
         return len(self.audiopaths_and_text)
 
 
-class TextMelCollate():
+class TextMelCollate:
     """ Zero-pads model inputs and targets based on number of frames per setep
     """
     def __init__(self, n_frames_per_step):
@@ -140,20 +144,26 @@ class TextMelCollate():
         # count number of items - characters in text
         len_x = []
         speaker_ids = []
+        emotion_ids = []
         for i in range(len(ids_sorted_decreasing)):
             len_x.append(batch[ids_sorted_decreasing[i]][2])
             speaker_ids.append(batch[ids_sorted_decreasing[i]][3])
+            emotion_id = batch[ids_sorted_decreasing[i]][4]
+
+            if emotion_id is not None:
+                emotion_ids.append(emotion_id)
 
         len_x = torch.Tensor(len_x)
         speaker_ids = torch.Tensor(speaker_ids)
+        emotion_ids = torch.Tensor(emotion_ids)
 
         return text_padded, input_lengths, mel_padded, gate_padded, \
-            output_lengths, len_x, speaker_ids
+            output_lengths, len_x, speaker_ids, emotion_ids
 
 
 def batch_to_gpu(batch):
     text_padded, input_lengths, mel_padded, gate_padded, \
-        output_lengths, len_x, speaker_ids = batch
+        output_lengths, len_x, speaker_ids, emotion_ids = batch
     text_padded = to_gpu(text_padded).long()
     input_lengths = to_gpu(input_lengths).long()
     max_len = torch.max(input_lengths.data).item()
@@ -161,7 +171,8 @@ def batch_to_gpu(batch):
     gate_padded = to_gpu(gate_padded).float()
     output_lengths = to_gpu(output_lengths).long()
     speaker_ids = to_gpu(speaker_ids).long()
-    x = (text_padded, input_lengths, mel_padded, max_len, output_lengths, speaker_ids)
+    emotion_ids = to_gpu(emotion_ids).long()
+    x = (text_padded, input_lengths, mel_padded, max_len, output_lengths, speaker_ids, emotion_ids)
     y = (mel_padded, gate_padded)
     len_x = torch.sum(output_lengths)
 

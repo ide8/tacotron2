@@ -519,6 +519,7 @@ class Decoder(nn.Module):
 class Tacotron2(nn.Module):
     def __init__(self, mask_padding, n_mel_channels,
                  n_symbols, symbols_embedding_dim, n_speakers, speakers_embedding_dim,
+                 use_emotions, n_emotions, emotions_embedding_dim,
                  encoder_kernel_size, encoder_n_convolutions, encoder_embedding_dim,
                  attention_rnn_dim, attention_dim, attention_location_n_filters,
                  attention_location_kernel_size, n_frames_per_step,
@@ -537,19 +538,23 @@ class Tacotron2(nn.Module):
         val = sqrt(3.0) * std  # uniform bounds for std
         self.symbols_embedding.weight.data.uniform_(-val, val)
 
-        self.speakers_embedding = nn.Embedding(
-            n_speakers, speakers_embedding_dim)
-
+        self.speakers_embedding = nn.Embedding(n_speakers, speakers_embedding_dim)
         torch.nn.init.xavier_uniform_(self.speakers_embedding.weight)
 
         self.encoder = Encoder(encoder_n_convolutions,
                                encoder_embedding_dim,
                                encoder_kernel_size)
 
-        encoder_and_speakers_embedding_dim = encoder_embedding_dim + speakers_embedding_dim
+        encoder_out_embedding_dim = encoder_embedding_dim + speakers_embedding_dim
+
+        self.use_emotions = use_emotions
+        if self.use_emotions:
+            self.emotions_embedding = nn.Embedding(n_emotions, emotions_embedding_dim)
+            torch.nn.init.xavier_uniform_(self.emotions_embedding.weight)
+            encoder_out_embedding_dim += emotions_embedding_dim
 
         self.decoder = Decoder(n_mel_channels, n_frames_per_step,
-                               encoder_and_speakers_embedding_dim, attention_dim,
+                               encoder_out_embedding_dim, attention_dim,
                                attention_location_n_filters,
                                attention_location_kernel_size,
                                attention_rnn_dim, decoder_rnn_dim,
@@ -564,7 +569,7 @@ class Tacotron2(nn.Module):
 
     def parse_batch(self, batch):
         text_padded, input_lengths, mel_padded, gate_padded, \
-            output_lengths, speaker_ids = batch
+            output_lengths, speaker_ids, emotion_ids = batch
         text_padded = to_gpu(text_padded).long()
         input_lengths = to_gpu(input_lengths).long()
         max_len = torch.max(input_lengths.data).item()
@@ -572,10 +577,10 @@ class Tacotron2(nn.Module):
         gate_padded = to_gpu(gate_padded).float()
         output_lengths = to_gpu(output_lengths).long()
         speaker_ids = to_gpu(speaker_ids).long()
+        emotion_ids = to_gpu(emotion_ids).long()
 
-        return (
-            (text_padded, input_lengths, mel_padded, max_len, output_lengths, speaker_ids),
-            (mel_padded, gate_padded))
+        return ((text_padded, input_lengths, mel_padded, max_len, output_lengths, speaker_ids, emotion_ids),
+                (mel_padded, gate_padded))
 
     def parse_output(self, outputs, output_lengths=None):
         if self.mask_padding and output_lengths is not None:
@@ -591,21 +596,32 @@ class Tacotron2(nn.Module):
 
     def forward(self, inputs):
         # Parse inputs
-        inputs, input_lengths, targets, max_len, output_lengths, speaker_ids = inputs
+        inputs, input_lengths, targets, max_len, output_lengths, speaker_ids, emotion_ids = inputs
         input_lengths, output_lengths = input_lengths.data, output_lengths.data
 
-        # Extract symbols embedding
-        embedded_inputs = self.symbols_embedding(inputs).transpose(1, 2)
+        # Outputs
+        outputs = []
+
         # Get symbols encoder outputs
+        embedded_inputs = self.symbols_embedding(inputs).transpose(1, 2)
         encoder_outputs = self.encoder(embedded_inputs, input_lengths)
+        outputs.append(encoder_outputs)
 
         # Extract speaker embeddings
         speaker_ids = speaker_ids.unsqueeze(1)
         embedded_speakers = self.speakers_embedding(speaker_ids)
         embedded_speakers = embedded_speakers.expand(-1, max_len, -1)
+        outputs.append(embedded_speakers)
 
-        # Combine symbols and speaker embeddings
-        merged_outputs = torch.cat([encoder_outputs, embedded_speakers], -1)
+        # Extract emotion embeddings
+        if self.use_emotions:
+            emotion_ids = emotion_ids.unsqueeze(1)
+            embedded_emotions = self.emotions_embedding(emotion_ids)
+            embedded_emotions = embedded_emotions.expand(-1, max_len, -1)
+            outputs.append(embedded_emotions)
+
+        # Combine all embeddings embeddings
+        merged_outputs = torch.cat(outputs, -1)
 
         mel_outputs, gate_outputs, alignments = self.decoder(
             merged_outputs, targets, memory_lengths=input_lengths)
@@ -617,18 +633,30 @@ class Tacotron2(nn.Module):
             [mel_outputs, mel_outputs_postnet, gate_outputs, alignments],
             output_lengths)
 
-    def infer(self, inputs, speaker_id):
-        # Get symbols encoder outputs
-        embedded_inputs = self.symbols_embedding(inputs).transpose(1, 2)
-        encoder_outputs = self.encoder.infer(embedded_inputs)
+    def infer(self, input, speaker_id, emotion_id=None):
+        # Outputs
+        outputs = []
+
+        # Get symbols encoder output
+        embedded_input = self.symbols_embedding(input).transpose(1, 2)
+        encoder_output = self.encoder.infer(embedded_input)
+        outputs.append(encoder_output)
 
         # Get speaker embedding
         speaker_id = speaker_id.unsqueeze(1)
         embedded_speaker = self.speakers_embedding(speaker_id)
-        embedded_speaker = embedded_speaker.expand(-1, encoder_outputs.shape[1], -1)
+        embedded_speaker = embedded_speaker.expand(-1, encoder_output.shape[1], -1)
+        outputs.append(embedded_speaker)
+
+        # Extract emotion embeddings
+        if self.use_emotions:
+            emotion_id = emotion_id.unsqueeze(1)
+            embedded_emotion = self.emotions_embedding(emotion_id)
+            embedded_emotion = embedded_emotion.expand(-1, encoder_output.shape[1], -1)
+            outputs.append(embedded_emotion)
 
         # Merge embeddings
-        merged_outputs = torch.cat([encoder_outputs, embedded_speaker], -1)
+        merged_outputs = torch.cat(outputs, -1)
 
         # Decode
         mel_outputs, gate_outputs, alignments = self.decoder.infer(

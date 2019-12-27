@@ -33,8 +33,6 @@ import torch
 
 
 def main():
-    os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3"
-
     argslist = list(sys.argv)[1:]
     world_size = torch.cuda.device_count()
 

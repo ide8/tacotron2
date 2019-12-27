@@ -50,9 +50,11 @@ def get_collate_function(model_name, n_frames_per_step):
 
 def get_data_loader(model_name, audiopaths_and_text):
     if model_name == 'Tacotron2':
-        data_loader = TextMelLoader(audiopaths_and_text, Config.text_cleaners, Config.load_mel_from_dist,
-                                    Config.max_wav_value, Config.sampling_rate, Config.filter_length, Config.hop_length,
-                                    Config.win_length, Config.n_mel_channels, Config.mel_fmin, Config.mel_fmax)
+        data_loader = TextMelLoader(audiopaths_and_text, Config.text_cleaners,
+                                    Config.load_mel_from_dist, Config.max_wav_value,
+                                    Config.sampling_rate, Config.filter_length, Config.hop_length,
+                                    Config.win_length, Config.n_mel_channels, Config.mel_fmin,
+                                    Config.mel_fmax, Config.use_emotions)
     elif model_name == 'WaveGlow':
         data_loader = MelAudioLoader(audiopaths_and_text, Config.filter_length, Config.hop_length, Config.win_length,
                                      Config.n_mel_channels, Config.sampling_rate, Config.mel_fmin, Config.mel_fmax,
