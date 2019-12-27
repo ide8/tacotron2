@@ -1,4 +1,5 @@
 import os
+import re
 import time
 import shutil
 import pathlib
@@ -105,9 +106,15 @@ def mapper(job):
     if process_audio:
         data, _ = librosa.effects.trim(data, top_db=Config.top_db)
         duration = librosa.get_duration(data)
-        wavfile.write(fout, Config.sr, data)
-        command = 'ffmpeg -y -i {} -acodec pcm_s16le -ac 1 -ar {} {} -nostats -loglevel 0'.format(fout, Config.sr, fout)
+
+        match = re.match('(.*)(.wav)', fout)
+        finter = f'{match.group(1)}-temp{match.group(2)}'
+
+        wavfile.write(finter, Config.sr, data)
+
+        command = 'ffmpeg -y -i {} -acodec pcm_s16le -ac 1 -ar {} {} -nostats -loglevel 0'.format(finter, Config.sr, fout)
         os.system(command)
+        os.remove(finter)
     else:
         duration = librosa.get_duration(data)
         copyfile(fin, fout)
