@@ -8,6 +8,7 @@ import argparse
 import importlib
 from shutil import copyfile
 from multiprocessing import Pool
+import json
 
 import numpy as np
 import pandas as pd
@@ -20,7 +21,7 @@ parser.add_argument('--exp', type=str, default=None, required=True, help='Name o
 args = parser.parse_args()
 
 # Prepare config
-shutil.copyfile(os.path.join('configs', 'experiments', args.exp + '.py'), os.path.join('configs', '__init__.py'))
+#shutil.copyfile(os.path.join('configs', 'experiments', args.exp + '.py'), os.path.join('configs', '__init__.py'))
 
 # Reload Config
 configs = importlib.import_module('configs')
@@ -45,7 +46,7 @@ def process(speaker_path, speaker_name, speaker_id, process_audio=True, emotion_
     Returns:
         jobs: list of tuples to be processed by mapper
     """
-    with open(os.path.join(speaker_path, 'metadata.csv'), 'r') as f:
+    with open(os.path.join(speaker_path, 'metadata1.csv'), 'r') as f:
         jobs = []
         output_path = os.path.join(Config.output_directory, speaker_name)
         output_audio_path = os.path.join(output_path, 'wavs')
@@ -108,18 +109,32 @@ def mapper(job):
         duration = librosa.get_duration(data)
 
         match = re.match('(.*)(.wav)', fout)
-        finter = f'{match.group(1)}-temp{match.group(2)}'
+        fint = f'{match.group(1)}-temp{match.group(2)}'
 
-        wavfile.write(finter, Config.sr, data)
+        wavfile.write(fint, Config.sr, data)
 
-        command = 'ffmpeg -y -i {} -acodec pcm_s16le -ac 1 -ar {} {} -nostats -loglevel 0'.format(finter, Config.sr, fout)
+        command = 'ffmpeg -y -i {} -acodec pcm_s16le -ac 1 -ar {} {} -nostats -loglevel 0'.format(fint, Config.sr, fout)
         os.system(command)
-        os.remove(finter)
+        os.remove(fint)
     else:
         duration = librosa.get_duration(data)
         copyfile(fin, fout)
 
     return fout, text, speaker_name, speaker_id, emotion, len(seq), duration
+
+def balance_coeficients(distribution):
+
+    true_balance = pd.DataFrame(distribution['emotion_id'].value_counts() / distribution.shape[0])
+    balance = pd.DataFrame({ 'true_balance': true_balance['emotion_id'],
+                             'sqrt_balance': np.sqrt(true_balance['emotion_id'])
+    })
+    sum_sqrts = sum(balance['sqrt_balance'])
+    balance['sqrt_div_sum_sqrts'] = balance['sqrt_balance'] / sum_sqrts
+    balance['4root'] = np.sqrt(np.divide(sum_sqrts, balance['sqrt_div_sum_sqrts']))
+    sum_4roots = sum(balance['4root'])
+    balance['final_balance'] = balance['4root'] / sum_4roots
+
+    return balance['final_balance'].to_dict()
 
 
 def main():
@@ -132,7 +147,7 @@ def main():
         jobs = []
         for speaker_data in tqdm(Config.data):
             for speaker_path, dirs, files in os.walk(speaker_data['path']):
-                if 'wavs' in dirs and 'metadata.csv' in files:
+                if 'wavs' in dirs and 'metadata1.csv' in files:
                     speaker_name = speaker_data['path'].split('/')[-1]
                     speaker_id = speaker_data['speaker_id']
                     process_audio = speaker_data['process_audio']
@@ -162,6 +177,7 @@ def main():
         distribution.to_csv(os.path.join(Config.output_directory, 'data.csv'), sep='|', index=False)
         print('Saved to data.csv')
 
+
     speakers = set(distribution['speaker_name'].unique())
     maxt = Config.text_limit
     maxd = Config.dur_limit
@@ -179,6 +195,7 @@ def main():
         print('Max {} dur: {}'.format(Config.limit_by, maxd))
         print('----------------------------------------------')
 
+
     for speaker_data in Config.data:
         speaker_name = speaker_data['path'].split('/')[-1]
 
@@ -187,6 +204,12 @@ def main():
                 (df['duration'] <= maxd) & (df['duration'] >= Config.minimum_viable_dur)]
 
         df = df[['path', 'text', 'speaker_id', 'emotion_id']]
+
+        if Config.save_balance_coeficients:
+            coeficients = balance_coeficients(df)
+            with open(os.path.join(Config.output_directory,'coeficients.json'), 'w') as json_file:
+                json.dump(coeficients, json_file)
+
 
         msk = np.random.rand(len(df)) < 0.95
         train = df[msk]
