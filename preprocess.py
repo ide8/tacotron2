@@ -21,7 +21,7 @@ parser.add_argument('--exp', type=str, default=None, required=True, help='Name o
 args = parser.parse_args()
 
 # Prepare config
-#shutil.copyfile(os.path.join('configs', 'experiments', args.exp + '.py'), os.path.join('configs', '__init__.py'))
+shutil.copyfile(os.path.join('configs', 'experiments', args.exp + '.py'), os.path.join('configs', '__init__.py'))
 
 # Reload Config
 configs = importlib.import_module('configs')
@@ -122,12 +122,16 @@ def mapper(job):
 
     return fout, text, speaker_name, speaker_id, emotion, len(seq), duration
 
-def balance_coeficients(distribution):
+def balance_coefs(distribution):
+    """
 
+    :param distribution:
+    :return:
+    """
     true_balance = pd.DataFrame(distribution['emotion_id'].value_counts() / distribution.shape[0])
-    balance = pd.DataFrame({ 'true_balance': true_balance['emotion_id'],
-                             'sqrt_balance': np.sqrt(true_balance['emotion_id'])
-    })
+    balance = pd.DataFrame({'true_balance': true_balance['emotion_id'],
+                            'sqrt_balance': np.sqrt(true_balance['emotion_id'])})
+
     sum_sqrts = sum(balance['sqrt_balance'])
     balance['sqrt_div_sum_sqrts'] = balance['sqrt_balance'] / sum_sqrts
     balance['4root'] = np.sqrt(np.divide(sum_sqrts, balance['sqrt_div_sum_sqrts']))
@@ -177,7 +181,6 @@ def main():
         distribution.to_csv(os.path.join(Config.output_directory, 'data.csv'), sep='|', index=False)
         print('Saved to data.csv')
 
-
     speakers = set(distribution['speaker_name'].unique())
     maxt = Config.text_limit
     maxd = Config.dur_limit
@@ -195,6 +198,7 @@ def main():
         print('Max {} dur: {}'.format(Config.limit_by, maxd))
         print('----------------------------------------------')
 
+    trains, vals = [], []
 
     for speaker_data in Config.data:
         speaker_name = speaker_data['path'].split('/')[-1]
@@ -205,11 +209,10 @@ def main():
 
         df = df[['path', 'text', 'speaker_id', 'emotion_id']]
 
-        if Config.save_balance_coeficients:
-            coeficients = balance_coeficients(df)
-            with open(os.path.join(Config.output_directory,'coeficients.json'), 'w') as json_file:
-                json.dump(coeficients, json_file)
-
+        if Config.save_balance_coefs:
+            coefs = balance_coefs(df)
+            with open(os.path.join(Config.output_directory, 'coefficients.json'), 'w') as json_file:
+                json.dump(coefs, json_file)
 
         msk = np.random.rand(len(df)) < 0.95
         train = df[msk]
@@ -222,8 +225,14 @@ def main():
         print('Val set for {} is: {}'.format(speaker_name, len(val)))
         print('----------------------------------------------')
 
-        train.to_csv(os.path.join(Config.output_directory, 'train.txt'), sep='|', index=False, header=False)
-        val.to_csv(os.path.join(Config.output_directory, 'val.txt'), sep='|', index=False, header=False)
+        trains.append(train)
+        vals.append(val)
+
+    train = pd.concat(trains)
+    val = pd.concat(vals)
+
+    train.to_csv(os.path.join(Config.output_directory, 'train.txt'), sep='|', index=False, header=False)
+    val.to_csv(os.path.join(Config.output_directory, 'val.txt'), sep='|', index=False, header=False)
 
     print('Done!')
 
