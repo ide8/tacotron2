@@ -21,7 +21,7 @@ parser.add_argument('--exp', type=str, default=None, required=True, help='Name o
 args = parser.parse_args()
 
 # Prepare config
-shutil.copyfile(os.path.join('configs', 'experiments', args.exp + '.py'), os.path.join('configs', '__init__.py'))
+#shutil.copyfile(os.path.join('configs', 'experiments', args.exp + '.py'), os.path.join('configs', '__init__.py'))
 
 # Reload Config
 configs = importlib.import_module('configs')
@@ -46,10 +46,11 @@ def process(speaker_path, speaker_name, speaker_id, process_audio=True, emotion_
     Returns:
         jobs: list of tuples to be processed by mapper
     """
-    with open(os.path.join(speaker_path, 'metadata1.csv'), 'r') as f:
+    with open(os.path.join(speaker_path, 'metadata.csv'), 'r') as f:
         jobs = []
         output_path = os.path.join(Config.output_directory, speaker_name)
         output_audio_path = os.path.join(output_path, 'wavs')
+        print('output_audio_path: ', output_audio_path)
         pathlib.Path(output_audio_path).mkdir(parents=True, exist_ok=True)
         emotion = 'neutral-normal'
 
@@ -122,15 +123,15 @@ def mapper(job):
 
     return fout, text, speaker_name, speaker_id, emotion, len(seq), duration
 
-def balance_coefs(distribution):
-    """
 
-    :param distribution:
-    :return:
+def balance_coefs(distribution, key):
     """
-    true_balance = pd.DataFrame(distribution['emotion_id'].value_counts() / distribution.shape[0])
-    balance = pd.DataFrame({'true_balance': true_balance['emotion_id'],
-                            'sqrt_balance': np.sqrt(true_balance['emotion_id'])})
+    :param distribution: pd.DataFrame with file data.csv
+    :return: dictionary with keys - emotions, values - coefficients for loss balancing
+    """
+    true_balance = pd.DataFrame(distribution[key].value_counts() / distribution.shape[0])
+    balance = pd.DataFrame({'true_balance': true_balance[key],
+                            'sqrt_balance': np.sqrt(true_balance[key])})
 
     sum_sqrts = sum(balance['sqrt_balance'])
     balance['sqrt_div_sum_sqrts'] = balance['sqrt_balance'] / sum_sqrts
@@ -143,6 +144,9 @@ def balance_coefs(distribution):
 
 def main():
     """
+    Loads metadata.csv and audio files from wavs directory or restores from data.csv
+    Saves data.csv, train.txt, val.txt
+    and coefficients_emotions.json, coefficients_emotions.json for loss balancing
     """
     if Config.start_from_preprocessed:
         distribution = pd.read_csv(os.path.join(Config.output_directory, 'data.csv'), sep='|')
@@ -151,7 +155,7 @@ def main():
         jobs = []
         for speaker_data in tqdm(Config.data):
             for speaker_path, dirs, files in os.walk(speaker_data['path']):
-                if 'wavs' in dirs and 'metadata1.csv' in files:
+                if 'wavs' in dirs and 'metadata.csv' in files:
                     speaker_name = speaker_data['path'].split('/')[-1]
                     speaker_id = speaker_data['speaker_id']
                     process_audio = speaker_data['process_audio']
@@ -209,12 +213,7 @@ def main():
 
         df = df[['path', 'text', 'speaker_id', 'emotion_id']]
 
-        if Config.save_balance_coefs:
-            coefs = balance_coefs(df)
-            with open(os.path.join(Config.output_directory, 'coefficients.json'), 'w') as json_file:
-                json.dump(coefs, json_file)
-
-        msk = np.random.rand(len(df)) < 0.95
+        msk = (np.random.rand(len(df)) < 0.95)
         train = df[msk]
         val = df[~msk]
 
@@ -230,6 +229,16 @@ def main():
 
     train = pd.concat(trains)
     val = pd.concat(vals)
+
+    if Config.save_balance_emotions:
+        coefs = balance_coefs(train, 'emotion_id')
+        with open(os.path.join(Config.output_directory, 'coefficients_emotions.json'), 'w') as json_file:
+            json.dump(coefs, json_file)
+
+    if Config.save_balance_speaker:
+        coefs = balance_coefs(train, 'speaker_id')
+        with open(os.path.join(Config.output_directory, 'coefficients_speakers.json'), 'w') as json_file:
+            json.dump(coefs, json_file)
 
     train.to_csv(os.path.join(Config.output_directory, 'train.txt'), sep='|', index=False, header=False)
     val.to_csv(os.path.join(Config.output_directory, 'val.txt'), sep='|', index=False, header=False)

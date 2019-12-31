@@ -29,6 +29,10 @@ class Config:
     use_emotions = True                         # Use emotions
     n_emotions = 15                             # N emotions
     emotions_embedding_dim = 8                  # Emotion embedding dimension
+    balance_loss_emotions = True                # to balance loss by emotions class ratio
+    balance_loss_speakers = True                # to balance loss accordingly by speaker class ratio
+    coef_file_emotions = '/train/coefficients_emotions.json'       # path to dict with emotions coefficients
+    coef_file_speakers = '/train/coefficients_speakers.json'       # path to dict with speaker coefficients
 
     # Encoder
     encoder_kernel_size = 5                      # Encoder kernel size
@@ -79,8 +83,8 @@ class Config:
     anneal_steps = [500, 1000, 1500]                                                                                    # Epochs after which decrease learning rate
     anneal_factor = 0.1                                                                                                 # Factor for annealing learning rate
 
-    tacotron2_checkpoint = '/app/pretrained/t2_fp32_torch'   # Path to pre-trained Tacotron2 checkpoint for sample generation
-    waveglow_checkpoint = '/app/pretrained/wg_fp32_torch'    # Path to pre-trained WaveGlow checkpoint for sample generation
+    tacotron2_checkpoint = '/data/pretrained/t2_fp32_torch'   # Path to pre-trained Tacotron2 checkpoint for sample generation
+    waveglow_checkpoint = '/data/pretrained/wg_fp32_torch'    # Path to pre-trained WaveGlow checkpoint for sample generation
     restore_from = ''                                                       # Checkpoint path to restore from
 
     # Training params
@@ -97,14 +101,17 @@ class Config:
     learning_rate = 1e-3                                      # Learning rate
     weight_decay = 1e-6                                       # Weight decay
     grad_clip_thresh = 1.0                                    # Clip threshold for gradients
-    batch_size = 192                                          # Batch size per GPU
+    batch_size = 40                                           # Batch size per GPU
     grad_clip = 5.0                                           # Enables gradient clipping and sets maximum gradient norm value
 
     # Dataset
     load_mel_from_dist = False                                # Loads mel spectrograms from disk instead of computing them on the fly
     text_cleaners = ['english_cleaners']                      # Type of text cleaners for input text
-    training_files = '/data/train.txt'                   # Path to training filelist
-    validation_files = '/data/val.txt'                   # Path to validation filelist
+    #training_files = '/data/train.txt'                       # Path to training filelist
+    #validation_files = '/data/val.txt'                       # Path to validation filelist
+    training_files = '/train/train.txt'
+    validation_files = '/train/val.txt'
+
 
     dist_url = 'tcp://localhost:23456'                        # Url used to set up distributed training
     group_name = "group_name"                                 # Distributed group name
@@ -129,19 +136,21 @@ class PreprocessingConfig:
     top_db = 40                                  # level to trim audio
     limit_by = 'linda_johnson'                   # speaker to measure text_limit, dur_limit
     minimum_viable_dur = 0.05                    # min duration of audio
-    text_limit = None                            # max text length (used by default)
-    dur_limit = None                             # max audio duration (used by default)
+    text_limit = 188                            # max text length (used by default)
+    dur_limit = 10                             # max audio duration (used by default)
     n = 100000                                   # max size of training dataset per speaker
-    start_from_preprocessed = True               # load data.csv - should be in output_directory
-
-    output_directory = '/data'
+    start_from_preprocessed = False              # load data.csv - should be in output_directory
+    save_balance_emotions = True
+    save_balance_speaker = True
+    #output_directory = '/data'
+    output_directory = '/train'
     data = [
-        # {
-        #     'path': '/raw-data/linda_johnson',
-        #     'speaker_id': 0,
-        #     'process_audio': False,
-        #     'emotion_present': False
-        # },
+        {
+             'path': '/data/raw-data/linda_johnson',
+            'speaker_id': 0,
+             'process_audio': False,
+             'emotion_present': False
+         },
         # {
         #    'path': '/raw-data/scarjo_the_dive_descript_grouped_50mil',
         #    'speaker_id': 1,
@@ -155,8 +164,8 @@ class PreprocessingConfig:
         #    'emotion_present': False
         # },
         {
-            'path': '/raw-data/melissa',
-            'speaker_id': 2,
+            'path': '/data/raw-data/mellisa',
+            'speaker_id': 1,
             'process_audio': True,
             'emotion_present': True
         }

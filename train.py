@@ -57,7 +57,7 @@ parser.add_argument('--world-size', default=1, type=int, help='Number of process
 args = parser.parse_args()
 
 # Prepare config
-shutil.copyfile(os.path.join('configs', 'experiments', args.exp + '.py'), os.path.join('configs', '__init__.py'))
+#shutil.copyfile(os.path.join('configs', 'experiments', args.exp + '.py'), os.path.join('configs', '__init__.py'))
 
 # Reload Config
 configs = importlib.import_module('configs')
@@ -239,7 +239,12 @@ def validate(model, criterion, valset, batch_size, world_size, collate_fn, distr
         for i, batch in enumerate(val_loader):
             x, y, len_x = batch_to_gpu(batch)
             y_pred = model(x)
-            loss = criterion(y_pred, y)
+
+            if Config.balance_loss_speakers or Config.balance_loss_emotions:
+                loss = balance_loss(x, y, y_pred, criterion)
+            else:
+                loss = criterion(y_pred, y)
+
 
             if distributed_run:
                 reduced_val_loss = reduce_tensor(loss.data, world_size).item()
@@ -276,6 +281,46 @@ def adjust_learning_rate(epoch, optimizer, learning_rate, anneal_steps, anneal_f
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
 
+def balance_loss(x, y, y_pred, criterion):
+    """
+    Args:
+        x, y: from unpacked batch_to_gpu
+        y_pred: predictions
+        criterion: loss function
+
+    Returns: balanced loss, torch.tensor
+    """
+    if Config.balance_loss_emotions:
+        coef_emotions = json.load(open(Config.coef_file_emotions))
+    if Config.balance_loss_speakers:
+        coef_speakers = json.load(open(Config.coef_file_speakers))
+
+    emotion_ids = x[6]
+    speaker_ids = x[5]
+    y_pred0, y_pred1, y_pred2, y_pred3 = y_pred
+    y0, y1 = y
+    loss_balanced = 0
+    for j in range(Config.batch_size):
+        y_predj = (y_pred0[j:j + 1, :, :], y_pred1[j:j + 1, :, :],
+                   y_pred2[j:j + 1, :], y_pred3[j:j + 1, :, :])
+        yj = (y0[j:j + 1, :, :], y1[j:j + 1, :])
+
+        if len(list(yj[0])) == 1:
+            coef_e = 1
+            coef_s = 1
+            if Config.balance_loss_emotions:
+                coef_e = coef_emotions[str(emotion_ids[j:j + 1].item())]
+
+            if Config.balance_loss_speakers:
+                coef_s = coef_speakers[str(speaker_ids[j:j + 1].item())]
+
+            lossj = coef_s * coef_e * criterion(y_predj, yj)
+        else:
+            lossj = 0
+        loss_balanced = loss_balanced + lossj
+
+    loss = loss_balanced / Config.batch_size
+    return loss
 
 def main():
     # Experiment dates
@@ -404,7 +449,12 @@ def main():
                 model.zero_grad()
                 x, y, num_items = batch_to_gpu(batch)
                 y_pred = model(x)
-                loss = criterion(y_pred, y)
+
+                if Config.balance_loss_speakers or Config.balance_loss_emotions:
+                    loss = balance_loss(x, y, y_pred, criterion)
+                else:
+                    loss = criterion(y_pred, y)
+
 
                 if distributed_run:
                     reduced_loss = reduce_tensor(loss.data, args.world_size).item()
