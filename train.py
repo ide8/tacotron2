@@ -300,6 +300,7 @@ def balance_loss(x, y, y_pred, criterion):
     y_pred0, y_pred1, y_pred2, y_pred3 = y_pred
     y0, y1 = y
     loss_balanced = 0
+    loss_unbalanced = 0
     for j in range(Config.batch_size):
         y_predj = (y_pred0[j:j + 1, :, :], y_pred1[j:j + 1, :, :],
                    y_pred2[j:j + 1, :], y_pred3[j:j + 1, :, :])
@@ -315,12 +316,16 @@ def balance_loss(x, y, y_pred, criterion):
                 coef_s = coef_speakers[str(speaker_ids[j:j + 1].item())]
 
             lossj = coef_s * coef_e * criterion(y_predj, yj)
+            loss_n = criterion(y_predj, yj)
         else:
             lossj = 0
+            loss_n = 0
         loss_balanced = loss_balanced + lossj
+        loss_unbalanced = loss_unbalanced + loss_n
 
     loss = loss_balanced / Config.batch_size
-    return loss
+    loss_unbalanced = loss_unbalanced / Config.batch_size
+    return Config.loss_scale * loss
 
 def main():
     # Experiment dates

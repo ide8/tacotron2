@@ -33,6 +33,7 @@ class Config:
     balance_loss_speakers = True                # to balance loss accordingly by speaker class ratio
     coef_file_emotions = '/train/coefficients_emotions.json'       # path to dict with emotions coefficients
     coef_file_speakers = '/train/coefficients_speakers.json'       # path to dict with speaker coefficients
+    loss_scale = 50                              # coefficient to multiplicate with loss
 
     # Encoder
     encoder_kernel_size = 5                      # Encoder kernel size
@@ -138,8 +139,8 @@ class PreprocessingConfig:
     minimum_viable_dur = 0.05                    # min duration of audio
     text_limit = 188                            # max text length (used by default)
     dur_limit = 10                             # max audio duration (used by default)
-    n = 100000                                   # max size of training dataset per speaker
-    start_from_preprocessed = False              # load data.csv - should be in output_directory
+    n = 5000                                   # max size of training dataset per speaker
+    start_from_preprocessed = True              # load data.csv - should be in output_directory
     save_balance_emotions = True
     save_balance_speaker = True
     #output_directory = '/data'
