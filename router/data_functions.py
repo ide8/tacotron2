@@ -26,11 +26,14 @@
 # *****************************************************************************
 
 import torch
+
 from tacotron2.data_function import TextMelCollate
 from tacotron2.data_function import TextMelLoader
 from waveglow.data_function import MelAudioLoader
 from tacotron2.data_function import batch_to_gpu as batch_to_gpu_tacotron2
 from waveglow.data_function import batch_to_gpu as batch_to_gpu_waveglow
+
+from configs import Config
 
 
 def get_collate_function(model_name, n_frames_per_step):
@@ -45,11 +48,17 @@ def get_collate_function(model_name, n_frames_per_step):
     return collate_fn
 
 
-def get_data_loader(model_name, audiopaths_and_text, args):
+def get_data_loader(model_name, audiopaths_and_text):
     if model_name == 'Tacotron2':
-        data_loader = TextMelLoader(audiopaths_and_text, args)
+        data_loader = TextMelLoader(audiopaths_and_text, Config.text_cleaners,
+                                    Config.load_mel_from_dist, Config.max_wav_value,
+                                    Config.sampling_rate, Config.filter_length, Config.hop_length,
+                                    Config.win_length, Config.n_mel_channels, Config.mel_fmin,
+                                    Config.mel_fmax, Config.use_emotions)
     elif model_name == 'WaveGlow':
-        data_loader = MelAudioLoader(audiopaths_and_text, args)
+        data_loader = MelAudioLoader(audiopaths_and_text, Config.filter_length, Config.hop_length, Config.win_length,
+                                     Config.n_mel_channels, Config.sampling_rate, Config.mel_fmin, Config.mel_fmax,
+                                     Config.segment_length, Config.max_wav_value)
     else:
         raise NotImplementedError(
             "unknown data loader requested: {}".format(model_name))

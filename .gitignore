@@ -109,3 +109,7 @@ venv.bak/
 nohup.out
 
 *.pickle
+
+data
+
+pretrained
