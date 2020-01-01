@@ -57,11 +57,14 @@ parser.add_argument('--world-size', default=1, type=int, help='Number of process
 args = parser.parse_args()
 
 # Prepare config
-#shutil.copyfile(os.path.join('configs', 'experiments', args.exp + '.py'), os.path.join('configs', '__init__.py'))
+shutil.copyfile(os.path.join('configs', 'experiments', args.exp + '.py'), os.path.join('configs', '__init__.py'))
 
 # Reload Config
 configs = importlib.import_module('configs')
 configs = importlib.reload(configs)
+
+print(configs)
+
 Config = configs.Config
 PConfig = configs.PreprocessingConfig
 
@@ -162,7 +165,7 @@ def save_sample(model_name, model_path):
         waveglow_path = Config.waveglow_checkpoint
 
     elif model_name == 'WaveGlow':
-        assert Config.tacotron2_checkpoint is not None, 'Tacotron2 checkpoint path is missing, could not generate sample'
+        assert Config.tacotron2_checkpoint is not None, 'Taco2 checkpoint path is missing, could not generate sample'
         waveglow_path = model_path
         tacotron2_path = Config.tacotron2_checkpoint
 
@@ -240,11 +243,7 @@ def validate(model, criterion, valset, batch_size, world_size, collate_fn, distr
             x, y, len_x = batch_to_gpu(batch)
             y_pred = model(x)
 
-            if Config.balance_loss_speakers or Config.balance_loss_emotions:
-                loss = balance_loss(x, y, y_pred, criterion)
-            else:
-                loss = criterion(y_pred, y)
-
+            loss = balance_loss(x, y, y_pred, criterion) if Config.use_loss_coefficients else criterion(y_pred, y)
 
             if distributed_run:
                 reduced_val_loss = reduce_tensor(loss.data, world_size).item()
@@ -281,44 +280,37 @@ def adjust_learning_rate(epoch, optimizer, learning_rate, anneal_steps, anneal_f
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
 
+
 def balance_loss(x, y, y_pred, criterion):
     """
     Args:
-        x, y: from unpacked batch_to_gpu
+        x: model input
+        y: labels
         y_pred: predictions
         criterion: loss function
 
     Returns: balanced loss, torch.tensor
     """
-    if Config.balance_loss_emotions:
-        coef_emotions = json.load(open(Config.coef_file_emotions))
-    if Config.balance_loss_speakers:
-        coef_speakers = json.load(open(Config.coef_file_speakers))
+    _, _, _, _, _, speaker_ids, emotion_ids = x
 
-    emotion_ids = x[6]
-    speaker_ids = x[5]
-    y_pred0, y_pred1, y_pred2, y_pred3 = y_pred
-    y0, y1 = y
+    batch_size = speaker_ids.shape[0]
     loss_balanced = 0
-    for j in range(Config.batch_size):
-        y_predj = (y_pred0[j:j + 1, :, :], y_pred1[j:j + 1, :, :],
-                   y_pred2[j:j + 1, :], y_pred3[j:j + 1, :, :])
-        yj = (y0[j:j + 1, :, :], y1[j:j + 1, :])
 
-        if len(list(yj[0])) == 1:
-            coef_e = 1
-            coef_s = 1
-            if Config.balance_loss_emotions:
-                coef_e = coef_emotions[str(emotion_ids[j:j + 1].item())]
-            if Config.balance_loss_speakers:
-                coef_s = coef_speakers[str(speaker_ids[j:j + 1].item())]
-            lossj = coef_s * coef_e * criterion(y_predj, yj)
-        else:
-            lossj = 0
+    for i in range(batch_size):
+        yi = [el[i] for el in y]
+        yi_p = [el[i] for el in y_pred]
 
-        loss_balanced = loss_balanced + lossj
-    loss = loss_balanced / Config.batch_size
+        e_c = Config.emotion_coefficients[str(emotion_ids[i].item())]
+        s_c = Config.speaker_coefficients[str(speaker_ids[i].item())]
+
+        single_loss = e_c * s_c * criterion(yi_p, yi)
+
+        loss_balanced += single_loss
+
+    loss = loss_balanced / batch_size
+
     return Config.loss_scale * loss
+
 
 def main():
     # Experiment dates
@@ -439,8 +431,6 @@ def main():
             num_iters = 0
 
             for i, batch in enumerate(train_loader):
-                print('Batch: {}/{} epoch {}'.format(i, len(train_loader), epoch))
-
                 iter_start_time = time.time()
                 adjust_learning_rate(epoch, optimizer, learning_rate=Config.learning_rate,
                                      anneal_steps=Config.anneal_steps, anneal_factor=Config.anneal_factor)
@@ -448,11 +438,7 @@ def main():
                 x, y, num_items = batch_to_gpu(batch)
                 y_pred = model(x)
 
-                if Config.balance_loss_speakers or Config.balance_loss_emotions:
-                    loss = balance_loss(x, y, y_pred, criterion)
-                else:
-                    loss = criterion(y_pred, y)
-
+                loss = balance_loss(x, y, y_pred, criterion) if Config.use_loss_coefficients else criterion(y_pred, y)
 
                 if distributed_run:
                     reduced_loss = reduce_tensor(loss.data, args.world_size).item()
@@ -484,6 +470,8 @@ def main():
                 iter_time = iter_stop_time - iter_start_time
                 items_per_sec = reduced_num_items/iter_time
                 train_epoch_avg_items_per_sec += items_per_sec
+
+                print('{} - Batch: {}/{} epoch {}'.format(iter_time, i, len(train_loader), epoch))
 
             epoch_stop_time = time.time()
 

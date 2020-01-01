@@ -1,5 +1,7 @@
 from tacotron2.text import symbols
 global symbols
+import json
+import numpy as np
 
 
 class Config:
@@ -14,10 +16,6 @@ class Config:
     max_wav_value = 32768.0                      # Maximum audiowave value
 
     ### Tacotron Params
-    # Optimization
-    mask_padding = False                         # Use mask padding
-    use_coefs = False                            # Use balancing coefficients
-
     # Symbols
     n_symbols = len(symbols)                     # Number of symbols in dictionary
     symbols_embedding_dim = 512                  # Text input embedding dimension
@@ -25,11 +23,13 @@ class Config:
     # Speakers
     n_speakers = 128                             # Number of speakers
     speakers_embedding_dim = 16                  # Speaker embedding dimension
+    speaker_coefficients = json.load(open('/data/speaker_coefficients.json'))  # Path to dict with speaker coefficients
 
     # Emotions
     use_emotions = True                          # Use emotions
     n_emotions = 15                              # N emotions
     emotions_embedding_dim = 8                   # Emotion embedding dimension
+    emotion_coefficients = json.load(open('/data/emotion_coefficients.json'))  # Path to dict with emotion coefficients
 
     # Encoder
     encoder_kernel_size = 5                      # Encoder kernel size
@@ -59,6 +59,13 @@ class Config:
     postnet_kernel_size = 5                      # Postnet kernel size
     postnet_n_convolutions = 5                   # Number of postnet convolutions
 
+    # Optimization
+    mask_padding = False                         # Use mask padding
+    use_loss_coefficients = True                 # Use balancing coefficients
+    # Loss scale for coefficients
+    loss_scale = 1.5 / (np.mean(list(speaker_coefficients.values())) * np.mean(list(emotion_coefficients.values())))
+
+
     ### Waveglow params
     n_flows = 12                                 # Number of steps of flow
     n_group = 8                                  # Number of samples in a group processed by the steps of flow
@@ -77,15 +84,15 @@ class Config:
     output_directory = "/logs"                   # Directory to save checkpoints
     log_file = "nvlog.json"                      # Filename for logging
 
-    anneal_steps = [900, 1900, 2400]             # Epochs after which decrease learning rate
+    anneal_steps = [700, 1200, 1700]             # Epochs after which decrease learning rate
     anneal_factor = 0.1                          # Factor for annealing learning rate
 
     tacotron2_checkpoint = '/app/pretrained/t2_fp32_torch'   # Path to pre-trained Tacotron2 checkpoint for sample generation
     waveglow_checkpoint = '/app/pretrained/wg_fp32_torch'    # Path to pre-trained WaveGlow checkpoint for sample generation
-    restore_from = '/logs/tacotron2/28-12-19/14-40-26/checkpoints/checkpoint_660'      # Checkpoint path to restore from
+    restore_from = '/logs/tacotron2/31-12-19/20-53-37/checkpoints/checkpoint_580'      # Checkpoint path to restore from
 
     # Training params
-    epochs = 1910                                # Number of total epochs to run
+    epochs = 1701                                # Number of total epochs to run
     epochs_per_checkpoint = 20                   # Number of epochs per checkpoint
     seed = 1234                                  # Seed for PyTorch random number generators
     dynamic_loss_scaling = True                  # Enable dynamic loss scaling
@@ -113,7 +120,7 @@ class Config:
 
     # Sample phrases
     phrases = {
-        'speaker_ids': [2],
+        'speaker_ids': [0, 2],
         'texts': [
             'Hello, how are you doing today?',
             'I would like to eat a Hamburger.',
@@ -134,16 +141,15 @@ class PreprocessingConfig:
     dur_limit = None                             # max audio duration (used by default)
     n = 100000                                   # max size of training dataset per speaker
     start_from_preprocessed = True               # load data.csv - should be in output_directory
-    save_balance_coefs = False                   # Save coefficients for balancing
 
     output_directory = '/data'
     data = [
-        # {
-        #     'path': '/raw-data/linda_johnson',
-        #     'speaker_id': 0,
-        #     'process_audio': False,
-        #     'emotion_present': False
-        # },
+        {
+            'path': '/raw-data/linda_johnson',
+            'speaker_id': 0,
+            'process_audio': False,
+            'emotion_present': False
+        },
         # {
         #    'path': '/raw-data/scarjo_the_dive_descript_grouped_50mil',
         #    'speaker_id': 1,

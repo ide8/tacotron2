@@ -21,7 +21,7 @@ parser.add_argument('--exp', type=str, default=None, required=True, help='Name o
 args = parser.parse_args()
 
 # Prepare config
-#shutil.copyfile(os.path.join('configs', 'experiments', args.exp + '.py'), os.path.join('configs', '__init__.py'))
+shutil.copyfile(os.path.join('configs', 'experiments', args.exp + '.py'), os.path.join('configs', '__init__.py'))
 
 # Reload Config
 configs = importlib.import_module('configs')
@@ -50,7 +50,6 @@ def process(speaker_path, speaker_name, speaker_id, process_audio=True, emotion_
         jobs = []
         output_path = os.path.join(Config.output_directory, speaker_name)
         output_audio_path = os.path.join(output_path, 'wavs')
-        print('output_audio_path: ', output_audio_path)
         pathlib.Path(output_audio_path).mkdir(parents=True, exist_ok=True)
         emotion = 'neutral-normal'
 
@@ -127,17 +126,18 @@ def mapper(job):
 def balance_coefs(distribution, key):
     """
     :param distribution: pd.DataFrame with file data.csv
-    :return: dictionary with keys - emotions, values - coefficients for loss balancing
+    :param key:
+    :return: dictionary with keys - dist[key].values, values - coefficients for loss balancing
     """
-    true_balance = pd.DataFrame(distribution[key].value_counts() / distribution.shape[0])
+    true_balance = pd.DataFrame(distribution[key].value_counts() / len(distribution))
     balance = pd.DataFrame({'true_balance': true_balance[key],
                             'sqrt_balance': np.sqrt(true_balance[key])})
 
     sum_sqrts = sum(balance['sqrt_balance'])
     balance['sqrt_div_sum_sqrts'] = balance['sqrt_balance'] / sum_sqrts
-    balance['4root'] = np.sqrt(np.divide(sum_sqrts, balance['sqrt_div_sum_sqrts']))
-    sum_4roots = sum(balance['4root'])
-    balance['final_balance'] = balance['4root'] / sum_4roots
+    balance['root'] = np.sqrt(np.divide(sum_sqrts, balance['sqrt_div_sum_sqrts']))
+    sum_roots = sum(balance['root'])
+    balance['final_balance'] = balance['root'] / sum_roots
 
     return balance['final_balance'].to_dict()
 
@@ -230,15 +230,13 @@ def main():
     train = pd.concat(trains)
     val = pd.concat(vals)
 
-    if Config.save_balance_emotions:
-        coefs = balance_coefs(train, 'emotion_id')
-        with open(os.path.join(Config.output_directory, 'coefficients_emotions.json'), 'w') as json_file:
-            json.dump(coefs, json_file)
+    e_coefs = balance_coefs(train, 'emotion_id')
+    with open(os.path.join(Config.output_directory, 'emotion_coefficients.json'), 'w') as json_file:
+        json.dump(e_coefs, json_file)
 
-    if Config.save_balance_speaker:
-        coefs = balance_coefs(train, 'speaker_id')
-        with open(os.path.join(Config.output_directory, 'coefficients_speakers.json'), 'w') as json_file:
-            json.dump(coefs, json_file)
+    s_coefs = balance_coefs(train, 'speaker_id')
+    with open(os.path.join(Config.output_directory, 'speaker_coefficients.json'), 'w') as json_file:
+        json.dump(s_coefs, json_file)
 
     train.to_csv(os.path.join(Config.output_directory, 'train.txt'), sep='|', index=False, header=False)
     val.to_csv(os.path.join(Config.output_directory, 'val.txt'), sep='|', index=False, header=False)
