@@ -26,7 +26,6 @@ We add multi-speaker and emotion embending, changed preprocessing, add restore /
      * [Tacotron 2 parameters](#Tacotron-2-parameters)
      * [WaveGlow parameters](#waveglow-parameters)
 * [TODOs](#todos)
-
    
 
 ## Setup
@@ -60,48 +59,45 @@ Build an image from Docker file:
 ```bash
 docker build --tag taco .
 ```
-Run:  
+Run docker container:  
 ```bash
 docker run --shm-size=8G --runtime=nvidia -v /absolute/path/to/your:/app -v /absolute/path/to/your:/data -v /absolute/path/to/your:/logs -v /absolute/path/to/your:/raw-data -detach taco sleep inf
 ```
-
+Check container id:
 ```bash
 docker ps
 ```
-Select Container ID of image with tag `taco` and run:
-
+Select container id of image with tag `taco` and log into container:
 ```
 docker exec -it container_id bash
 ```
 
 ## Repository description
 
-
 Folders `tacotron2` and `waveglow` have scripts for Tacotron 2, WaveGlow models and consists of:  
 
-* `<model_name>/model.py` - the model architecture, definition of forward and
-inference functions
+* `<model_name>/model.py` - model architecture
 * `<model_name>/data_function.py` - data loading functions
-* `<model_name>/loss_function.py` - loss function for the model
+* `<model_name>/loss_function.py` - loss function
 
-Folder `common` contains common for both models layers (`common/layers.py`), utils (`common/utils.py`) and audio processing (`common/audio_processing.py` and `common/stft.py`).  
-Scripts in `router` directory are used by training script to select an appropriate model.  
+Folder `common` contains common layers for both models (`common/layers.py`), utils (`common/utils.py`) and audio processing (`common/audio_processing.py` and `common/stft.py`).  
+Scripts in `router` folder are used by training script to select an appropriate model.  
 
-In the root directory:  
+In the root directory:
 * `train.py` - script for model training
-* `preprocess.py` - performs audio processing and make training and validation datasets
+* `preprocess.py` - performs audio processing and creates training and validation datasets
 * `inference.ipynb` - notebook for running inference
 
-Folder `Config` contains `__init__.py` with all parameters needed for training and data processing. Folder `Config/experiment` provides an example parameters in script `default.py`. 
-When training or data processing run, parameters are copying from `default.py` to `__init__.py`
+Folder `configs` contains `__init__.py` with all parameters needed for training and data processing. Folder `configs/experiments` consists of all the experiments. `default.py` is provided as an example.
+On training or data processing start, parameters are copied from `default.py` to `__init__.py`, from which they are used by the system.
 
 
 ## Data preprocessing
 
- All necessary parameters for preprocessiong should be set in `configs/experiments/default.py` in the class `PreprocessingConfig`.  
- If `start_from_preprocessed` flag is set to **False**, `preprocess.py` performs trimming of audio files up to `PreprocessingConfig.top_db` parameter, applies ffmpeg command,
+All necessary parameters for preprocessiong should be set in `configs/experiments/default.py` in the class `PreprocessingConfig`.  
+If `start_from_preprocessed` flag is set to **False**, `preprocess.py` performs trimming of audio files up to `PreprocessingConfig.top_db` parameter, applies ffmpeg command,
 measures duration of audio files and lengths of correspondent text transcripts.  
- It saves a folder `wavs` with processed audio files and `data.csv` file in `PreprocessingConfig.output_directory` with the following format: `path_to_file, text, speaker_name, speaker_id, emotion, duration_of_audio, length_of_text`.  
+It saves a folder `wavs` with processed audio files and `data.csv` file in `PreprocessingConfig.output_directory` with the following format: `path_to_file, text, speaker_name, speaker_id, emotion, duration_of_audio, length_of_text`.  
 Trimming and ffmpeg command are applied only to speakers, for which flag `process_audion` is **True**. Speakers with flag `emotion_present` is **False**, are treated as with emotion `neutral-normal`.  
 If flag `start_from_preprocessed` is set to **True**, script loads file `data.csv` (it should be present in `PreprocessingConfig.output_directory`).  
 
@@ -253,22 +249,5 @@ WaveGlow models.
 
 # TODOs
 
-These scripts work at FP16 with n=1 frame per decoder step.  
-* Make Decoder work with n > 1 frames per step
-* Make training work at FP16. 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+- [ ] Make Decoder work with n > 1 frames per step
+- [ ] Make training work at FP16. 
