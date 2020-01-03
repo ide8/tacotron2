@@ -8,6 +8,7 @@ v1.6 models.
    * [Requirements](#requirements)
 * [Data Preprocessing](#data-preprocessing)
 * [Training](#training)
+* [Inference process](#inference-process)
 * [Repository Description](#repository-description)
    * [Scripts and sample code](#scripts-and-sample-code)
    * [Parameters](#parameters)
@@ -15,6 +16,7 @@ v1.6 models.
       * [Shared audio/STFT parameters](#shared-audiostft-parameters)
       * [Tacotron 2 parameters](#Tacotron-2-parameters)
       * [WaveGlow parameters](#waveglow-parameters)
+
    
 
 ## Setup
@@ -110,6 +112,43 @@ In order to use emotions, set `use_emotions` as **True**.
  For balancing loss, set `use_loss_coefficients` as **True** and paths to dicts with coefficients in `emotion_coefficients` and `speaker_coefficients`.  
 
 
+## Inference process
+
+You can run inference using the `./inference.ipynb` notebook.  
+
+Run Jupyter Notebook:  
+`jupyter notebook --ip 0.0.0.0 --port 6006 --no-browser --allow-root`  
+
+output:  
+```
+root@04096a19c266:/app# jupyter notebook --ip 0.0.0.0 --port 6006 --no-browser --allow-root
+[I 09:31:25.393 NotebookApp] JupyterLab extension loaded from /opt/conda/lib/python3.6/site-packages/jupyterlab
+[I 09:31:25.393 NotebookApp] JupyterLab application directory is /opt/conda/share/jupyter/lab
+[I 09:31:25.395 NotebookApp] Serving notebooks from local directory: /app
+[I 09:31:25.395 NotebookApp] The Jupyter Notebook is running at:
+[I 09:31:25.395 NotebookApp] http://(04096a19c266 or 127.0.0.1):6006/?token=bbd413aef225c1394be3b9de144242075e651bea937eecce
+[I 09:31:25.395 NotebookApp] Use Control-C to stop this server and shut down all kernels (twice to skip confirmation).
+[C 09:31:25.398 NotebookApp] 
+    
+    To access the notebook, open this file in a browser:
+        file:///root/.local/share/jupyter/runtime/nbserver-15398-open.html
+    Or copy and paste one of these URLs:
+        http://(04096a19c266 or 127.0.0.1):6006/?token=bbd413aef225c1394be3b9de144242075e651bea937eecce
+```
+
+select adress with 127.0.01 and put it in the browser.  
+In this case:  
+`http://127.0.0.1:6006/?token=bbd413aef225c1394be3b9de144242075e651bea937eecce`  
+Notebook opens in reed-only mode.  
+
+This script takes
+text as input and runs Tacotron 2 and then WaveGlow inference to produce an
+audio file. It requires  pre-trained checkpoints from Tacotron 2 and WaveGlow
+models and input text.  
+
+Change paths to checkpoints of pretrained WaveGlow and Tacatron2  in the cell [2].  
+Write a text to be displayed in the cell [7].  
+
 
 ## Repository description
 
@@ -163,48 +202,5 @@ WaveGlow models.
 #### WaveGlow parameters
 
 * `segment-length` - segment length of input audio processed by the neural network (8000)
-
-
-
-### Inference process
-
-You can run inference using the `./inference.ipynb` notebook.  
-
-Run Jupyter Notebook:  
-`jupyter notebook --ip 0.0.0.0 --port 6006 --no-browser --allow-root`  
-
-output:  
-```
-root@04096a19c266:/app# jupyter notebook --ip 0.0.0.0 --port 6006 --no-browser --allow-root
-[I 09:31:25.393 NotebookApp] JupyterLab extension loaded from /opt/conda/lib/python3.6/site-packages/jupyterlab
-[I 09:31:25.393 NotebookApp] JupyterLab application directory is /opt/conda/share/jupyter/lab
-[I 09:31:25.395 NotebookApp] Serving notebooks from local directory: /app
-[I 09:31:25.395 NotebookApp] The Jupyter Notebook is running at:
-[I 09:31:25.395 NotebookApp] http://(04096a19c266 or 127.0.0.1):6006/?token=bbd413aef225c1394be3b9de144242075e651bea937eecce
-[I 09:31:25.395 NotebookApp] Use Control-C to stop this server and shut down all kernels (twice to skip confirmation).
-[C 09:31:25.398 NotebookApp] 
-    
-    To access the notebook, open this file in a browser:
-        file:///root/.local/share/jupyter/runtime/nbserver-15398-open.html
-    Or copy and paste one of these URLs:
-        http://(04096a19c266 or 127.0.0.1):6006/?token=bbd413aef225c1394be3b9de144242075e651bea937eecce
-```
-
-select adress with 127.0.01 and put it in the browser.  
-In this case:  
-`http://127.0.0.1:6006/?token=bbd413aef225c1394be3b9de144242075e651bea937eecce`  
-Notebook opens in reed-only mode.  
-
-This script takes
-text as input and runs Tacotron 2 and then WaveGlow inference to produce an
-audio file. It requires  pre-trained checkpoints from Tacotron 2 and WaveGlow
-models and input text.  
-
-Change paths to checkpoints of pretrained WaveGlow and Tacatron2  in the cell [2].  
-Write a text to be displayed in the cell [7].
-
-
-
-
 
 
