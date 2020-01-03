@@ -37,8 +37,8 @@ Tacotron 2 and WaveGlow models.
 
 Clone the repository:
    ```bash
-   git clone https://github.com/ide8/tacotron2_waveglow_multispeaker_gst  # TODO: rename
-   cd tacotron2_waveglow_multispeaker_gst
+   git clone https://github.com/ide8/tacotron2  
+   cd tacotron2
    PROJDIR=$(pwd)
    export PYTHONPATH=$PROJDIR:$PYTHONPATH
    ```
