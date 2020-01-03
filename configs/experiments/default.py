@@ -65,7 +65,6 @@ class Config:
     # Loss scale for coefficients
     loss_scale = 1.5 / (np.mean(list(speaker_coefficients.values())) * np.mean(list(emotion_coefficients.values())))
 
-
     ### Waveglow params
     n_flows = 12                                 # Number of steps of flow
     n_group = 8                                  # Number of samples in a group processed by the steps of flow
@@ -96,7 +95,7 @@ class Config:
     epochs_per_checkpoint = 20                   # Number of epochs per checkpoint
     seed = 1234                                  # Seed for PyTorch random number generators
     dynamic_loss_scaling = True                  # Enable dynamic loss scaling
-    amp_run = False                              # Enable AMP
+    amp_run = False                              # Enable AMP (FP16) # TODO: Make it work
     cudnn_enabled = True                         # Enable cudnn
     cudnn_benchmark = False                      # Run cudnn benchmark
 
