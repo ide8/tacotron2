@@ -58,7 +58,7 @@ or newer
 Build an image from Docker file:
 
 ```bash
-docker build --tag taco
+docker build --tag taco .
 ```
 Run:  
 ```bash
