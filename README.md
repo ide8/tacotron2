@@ -1,26 +1,35 @@
 # Tacotron 2 (multispeaker + gst) And WaveGlow
 
 This repository provides a script and recipe to train Tacotron 2 and WaveGlow
-v1.6 models to achieve state of the art accuracy, and is tested and maintained by NVIDIA.
+v1.6 models.
 
 ## Table of Contents
-* [Setup](##Setup)
-   * [Requirements](###Requirements)
-* Data Preprocessing (##Data preprocessing)
-* [Training](##Training)
-* [Model Description](#Model description)
-   * [Scripts and sample code](#Scripts and sample code)
-   * [Parameters](#Parameters)
-      * [Shared parameters](#Shared parameters)
-      * [Shared audio/STFT parameters](#Shared audio/STFT parameters)
-      * [Tacotron 2 parameters](#Tacotron 2 parameters)
-      * [WaveGlow parameters](#Waveglow parameters)
+* [Setup](#setup)
+   * [Requirements](#requirements)
+* [Data Preprocessing](#data-preprocessing)
+* [Training](#training)
+* [Repository Description](#repository-description)
+   * [Scripts and sample code](#scripts-and-sample-code)
+   * [Parameters](#parameters)
+      * [Shared parameters](#shared-parameters)
+      * [Shared audio/STFT parameters](#shared-audiostft-parameters)
+      * [Tacotron 2 parameters](#Tacotron-2-parameters)
+      * [WaveGlow parameters](#waveglow-parameters)
    
 
 ## Setup
 
 The following section lists the requirements in order to start training the
 Tacotron 2 and WaveGlow models.
+
+
+Clone the repository:
+   ```bash
+   git clone https://github.com/ide8/tacotron2_waveglow_multispeaker_gst
+   cd tacotron2_waveglow_multispeaker_gst
+   PROJDIR=$(pwd)
+   export PYTHONPATH=$PROJDIR:$PYTHONPATH
+   ```
 
 ### Requirements
 
@@ -45,16 +54,8 @@ docker ps -a
 Select Container ID of image `taco`. Run:
 
 ```
-docker exec -it ID_of_taco_container bash
+docker exec -it container_id bash
 ```
-
-Clone the repository:
-   ```bash
-   git clone https://github.com/ide8/tacotron2_waveglow_multispeaker_gst
-   cd tacotron2_waveglow_multispeaker_gst
-   PROJDIR=$(pwd)
-   export PYTHONPATH=$PROJDIR:$PYTHONPATH
-   ```
 
 ## Data preprocessing
 
@@ -69,12 +70,12 @@ measures duration of audio files and lengths of correspondent text transcripts.
 Trimming and ffmpeg command are applied only to speakers, for which flag `process_audion` is **True**. Speakers with flag `emotion_present` is **False**, are treated as with emotion `neutral-normal`.  
 If flag `start_from_preprocessed` is set to **True**, script loads file `data.csv` (it should be present in `PreprocessingConfig.output_directory`).  
 
-Than script forms training and validation datasets in following way:
+Script forms training and validation datasets in the following way:
 * selects rows with audio duration and text length less or equal those for speaker `PreprocessingConfig.limit_by`.  
 If can't find, than it selects rows within `PreprocessingConfig.text_limit` and `PreprocessingConfig.dur_limit`. Lower limit for audio is defined by `PreprocessingConfig.minimum_viable_dur`. For being able to use the same batch size as NVIDIA guys, set `PreprocessingConfig.text_limit` to `linda_jonson`.
-* splits dataset randomly by `ratio train : valid = 0.95 : 0.05`
+* splits dataset randomly by ratio `train : valid = 0.95 : 0.05`
 * if train set is bigger than `PreprocessingConfig.n`, samples `n` rows
-* saves `train.txt` and `val.txt` to `PreprocessingConfig.output_directory`
+* saves `train.txt` and `val.txt` to `PreprocessingConfig.output_directory`  
 It saves `emotion_coefficients.json` and `speaker_coefficients.json` with coefficients for loss balancing (used by `train.py`).  
 
 `PreprocessingConfig.cpus` defines number of cores to use when parallelize jobs.  
@@ -156,7 +157,7 @@ WaveGlow models.
 
 #### Tacotron 2 parameters
 
-* `anneal-steps` - epochs at which to anneal the learning rate (700 1200 1700)
+* `anneal-steps` - epochs at which to anneal the learning rate (700/ 1200/ 1700)
 * `anneal-factor` - factor by which to anneal the learning rate (0.1)
 
 #### WaveGlow parameters
@@ -167,7 +168,7 @@ WaveGlow models.
 
 ### Inference process
 
-You can run inference using the `./inference.ipynb` script.  
+You can run inference using the `./inference.ipynb` notebook.  
 
 Run Jupyter Notebook:  
 `jupyter notebook --ip 0.0.0.0 --port 6006 --no-browser --allow-root`  
@@ -189,7 +190,7 @@ root@04096a19c266:/app# jupyter notebook --ip 0.0.0.0 --port 6006 --no-browser -
         http://(04096a19c266 or 127.0.0.1):6006/?token=bbd413aef225c1394be3b9de144242075e651bea937eecce
 ```
 
-select adress with 127.0.01 and put it in the brouser.  
+select adress with 127.0.01 and put it in the browser.  
 In this case:  
 `http://127.0.0.1:6006/?token=bbd413aef225c1394be3b9de144242075e651bea937eecce`  
 Notebook opens in reed-only mode.  
@@ -197,10 +198,10 @@ Notebook opens in reed-only mode.
 This script takes
 text as input and runs Tacotron 2 and then WaveGlow inference to produce an
 audio file. It requires  pre-trained checkpoints from Tacotron 2 and WaveGlow
-models and input text as a text file, with one phrase per line.  
+models and input text.  
 
- In cell [2] change paths to checkpoints of pretrained WaveGlow and Tacatron2.  
-In cell [7] write a text to be displayed.
+Change paths to checkpoints of pretrained WaveGlow and Tacatron2  in the cell [2].  
+Write a text to be displayed in the cell [7].
 
 
 
