@@ -1,4 +1,4 @@
-# Tacotron 2 (multispeaker + gst) And WaveGlow
+# Multispeaker & Emotional TTS based on Tacotron 2 and Waveglow
 
 ## Table of Contents
 
@@ -120,26 +120,26 @@ On training or data processing start, parameters are copied from your experiment
 
 ### Preparing for data preprocessing
 
-1. For each speaker you have to have a folder named with speaker name, containing wavs folder and metadata.csv file with the next line format: `file_name.wav|text`.
-2. All necessary parameters for preprocessiong should be set in `configs/experiments/default.py` in the class `PreprocessingConfig`.
+1. For each speaker you have to have a folder named with speaker name, containing `wavs` folder and `metadata.csv` file with the next line format: `file_name.wav|text`.
+2. All necessary parameters for preprocessing should be set in `configs/experiments/default.py` in the class `PreprocessingConfig`.
 3. If  you're running preprocessing first time, set `start_from_preprocessed` flag to **False**, `preprocess.py` will perform trimming of audio files up to `PreprocessingConfig.top_db` (cuts the silence in the beginning and the end), applies ffmpeg command in order to mono, make same sampling rate and bit rate for all the wavs in dataset. 
-4. It saves a folder `wavs` with processed audio files and `data.csv` file in `PreprocessingConfig.output_directory` with the following format: `path, text, speaker_name, speaker_id, emotion, text_len, duration`.  
+4. It saves a folder `wavs` with processed audio files and `data.csv` file in `PreprocessingConfig.output_directory` with the following format: `path|text|speaker_name|speaker_id|emotion|text_len|duration`.  
 5. Trimming and ffmpeg command are applied only to speakers, for which flag `process_audio` is **True**. Speakers with flag `emotion_present` is **False**, are treated as with emotion `neutral-normal`.
 6. You won't need `start_from_preprocessed = False` once you finish running preprocessing script. Only exception in case of new raw data comes in.
 7. Once `start_from_preprocessed` is set to **True**, script will load file `data.csv` (from the `start_from_preprocessed = False` run), and forms `train.txt` and `val.txt` out from `data.csv`.
 8. Main `PreprocessingConfig` parameters:
-* `cpus` - defines number of cores for batch generator
-* `sr` - defines sample ratio for reading and writing audio
-* `emo_id_map` - dictionary for emotion name to emotion_id mapping
-* `data[{'path'}]` - is path to folder named with speaker name and containing `wavs` folder and `metadata.csv` with the following line format: `file_name.wav|text|emotion (optional)`
+    1. `cpus` - defines number of cores for batch generator
+    2. `sr` - defines sample ratio for reading and writing audio
+    3. `emo_id_map` - dictionary for emotion name to emotion_id mapping
+    4. `data[{'path'}]` - is path to folder named with speaker name and containing `wavs` folder and `metadata.csv` with the following line format: `file_name.wav|text|emotion (optional)`
 9. Preprocessing script forms training and validation datasets in the following way:
-* selects rows with audio duration and text length less or equal those for speaker `PreprocessingConfig.limit_by` (this is needed for proper batch size)
-* if such speaker is not present, than it selects rows within `PreprocessingConfig.text_limit` and `PreprocessingConfig.dur_limit`. Lower limit for audio is defined by `PreprocessingConfig.minimum_viable_dur`
-* in order to be able to use the same batch size as NVIDIA guys, set `PreprocessingConfig.text_limit` to `linda_jonson`
-* splits dataset randomly by ratio `train : val = 0.95 : 0.05`
-* if speaker train set is bigger than `PreprocessingConfig.n` - samples `n` rows
-* saves `train.txt` and `val.txt` to `PreprocessingConfig.output_directory` 
-* saves `emotion_coefficients.json` and `speaker_coefficients.json` with coefficients for loss balancing (used by `train.py`).
+    1. selects rows with audio duration and text length less or equal those for speaker `PreprocessingConfig.limit_by` (this is needed for proper batch size)
+    2. if such speaker is not present, than it selects rows within `PreprocessingConfig.text_limit` and `PreprocessingConfig.dur_limit`. Lower limit for audio is defined by `PreprocessingConfig.minimum_viable_dur`
+    3. in order to be able to use the same batch size as NVIDIA guys, set `PreprocessingConfig.text_limit` to `linda_jonson`
+    4. splits dataset randomly by ratio `train : val = 0.95 : 0.05`
+    5. if speaker train set is bigger than `PreprocessingConfig.n` - samples `n` rows
+    6. saves `train.txt` and `val.txt` to `PreprocessingConfig.output_directory` 
+    7. saves `emotion_coefficients.json` and `speaker_coefficients.json` with coefficients for loss balancing (used by `train.py`).
 
 ### Run preprocessing
 
@@ -208,7 +208,7 @@ Loss together is being written into tensorboard:
 
 ![Tensorboard Scalars](/img/tacotron-scalars.png)
 
-Audio samples are saved into tensorbaord as well each `Config.epochs_per_checkpoint`. Transcripts for audios are listed in `default.py/Config.phrases`
+Audio samples are saved into tensorbaord each `Config.epochs_per_checkpoint`. Transcripts for audios are listed in `Config.phrases`
 
 ![Tensorboard Audio](/img/tacotron-audio.png)
 
@@ -247,7 +247,7 @@ text as input and runs Tacotron 2 and then WaveGlow inference to produce an
 audio file. It requires  pre-trained checkpoints from Tacotron 2 and WaveGlow
 models, input text, speaker_id and emotion_id.  
 
-Change paths to checkpoints of pretrained WaveGlow and Tacotron 2 in the cell [2] of the `inference.ipynb`.  
+Change paths to checkpoints of pretrained Tacotron 2 and WaveGlow in the cell [2] of the `inference.ipynb`.  
 Write a text to be displayed in the cell [7] of the `inference.ipynb`.  
 
 ## Parameters
