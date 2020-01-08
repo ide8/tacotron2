@@ -61,7 +61,7 @@ class Config:
 
     # Optimization
     mask_padding = False                         # Use mask padding
-    use_loss_coefficients = True                 # Use balancing coefficients
+    use_loss_coefficients = False                # Use balancing coefficients
     # Loss scale for coefficients
     loss_scale = 1.5 / (np.mean(list(speaker_coefficients.values())) * np.mean(list(emotion_coefficients.values())))
 
@@ -79,20 +79,20 @@ class Config:
     )
 
     ### Script args
-    model_name = "Tacotron2"
+    model_name = "WaveGlow"
     output_directory = "/logs"                   # Directory to save checkpoints
     log_file = "nvlog.json"                      # Filename for logging
 
-    anneal_steps = [700, 1200, 1700]             # Epochs after which decrease learning rate
+    anneal_steps = [700, 2100, 2200]             # Epochs after which decrease learning rate
     anneal_factor = 0.1                          # Factor for annealing learning rate
 
-    tacotron2_checkpoint = '/app/pretrained/t2_fp32_torch'   # Path to pre-trained Tacotron2 checkpoint for sample generation
-    waveglow_checkpoint = '/app/pretrained/wg_fp32_torch'    # Path to pre-trained WaveGlow checkpoint for sample generation
-    restore_from = '/logs/tacotron2/31-12-19/20-53-37/checkpoints/checkpoint_580'      # Checkpoint path to restore from
+    tacotron2_checkpoint = '/logs/tacotron2/04-01-20/05-59-57/checkpoints/checkpoint_1520'   # Path to pre-trained Tacotron2 checkpoint for sample generation
+    waveglow_checkpoint = '/logs/default/04-01-20/17-38-01/checkpoints/checkpoint_2000'    # Path to pre-trained WaveGlow checkpoint for sample generation
+    restore_from = '/logs/default/04-01-20/17-38-01/checkpoints/checkpoint_2000'      # Checkpoint path to restore from
 
     # Training params
-    epochs = 1701                                # Number of total epochs to run
-    epochs_per_checkpoint = 20                   # Number of epochs per checkpoint
+    epochs = 2251                                # Number of total epochs to run
+    epochs_per_checkpoint = 50                   # Number of epochs per checkpoint
     seed = 1234                                  # Seed for PyTorch random number generators
     dynamic_loss_scaling = True                  # Enable dynamic loss scaling
     amp_run = False                              # Enable AMP (FP16) # TODO: Make it work
@@ -104,7 +104,7 @@ class Config:
     learning_rate = 1e-3                         # Learning rate
     weight_decay = 1e-6                          # Weight decay
     grad_clip_thresh = 1.0                       # Clip threshold for gradients
-    batch_size = 64                              # Batch size per GPU
+    batch_size = 11                              # Batch size per GPU
     grad_clip = 5.0                              # Enables gradient clipping and sets maximum gradient norm value
 
     # Dataset
@@ -149,18 +149,18 @@ class PreprocessingConfig:
             'process_audio': False,
             'emotion_present': False
         },
-        # {
-        #    'path': '/raw-data/scarjo_the_dive_descript_grouped_50mil',
-        #    'speaker_id': 1,
-        #    'process_audio': True,
-        #    'emotion_present': False
-        # },
-        # {
-        #    'path': '/raw-data/scarjo_the_dive_descript_ungrouped',
-        #    'speaker_id': 1,
-        #    'process_audio': True,
-        #    'emotion_present': False
-        # },
+        {
+           'path': '/raw-data/scarjo_the_dive_descript_grouped_50mil',
+           'speaker_id': 1,
+           'process_audio': True,
+           'emotion_present': False
+        },
+        {
+           'path': '/raw-data/scarjo_the_dive_descript_ungrouped',
+           'speaker_id': 1,
+           'process_audio': True,
+           'emotion_present': False
+        },
         {
             'path': '/raw-data/melissa',
             'speaker_id': 2,
@@ -186,3 +186,4 @@ class PreprocessingConfig:
         'surprised-normal': 13,
         'surprised-strong': 14
     }
+

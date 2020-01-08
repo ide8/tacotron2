@@ -382,7 +382,9 @@ def main():
     try:
         sigma = model_config['sigma']
     except KeyError:
-        sigma = None
+        if model_name == 'WaveGlow':
+            model_config['sigma'] = Config.wg_sigma
+            sigma = model_config['sigma']
 
     # Set criterion
     criterion = loss_functions.get_loss_function(model_name, sigma)
