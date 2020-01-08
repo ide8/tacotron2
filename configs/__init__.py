@@ -23,13 +23,21 @@ class Config:
     # Speakers
     n_speakers = 128                             # Number of speakers
     speakers_embedding_dim = 16                  # Speaker embedding dimension
-    speaker_coefficients = json.load(open('/data/speaker_coefficients.json'))  # Path to dict with speaker coefficients
+    try:
+        speaker_coefficients = json.load(open('/train/speaker_coefficients.json'))  # Dict with speaker coefficients
+    except IOError:
+        print("Speaker coefficients dict is not available")
+        speaker_coefficients = None
 
     # Emotions
-    use_emotions = True                          # Use emotions
+    use_emotions = True                         # Use emotions
     n_emotions = 15                              # N emotions
     emotions_embedding_dim = 8                   # Emotion embedding dimension
-    emotion_coefficients = json.load(open('/data/emotion_coefficients.json'))  # Path to dict with emotion coefficients
+    try:
+        emotion_coefficients = json.load(open('/train/emotion_coefficients.json'))  # Dict with emotion coefficients
+    except IOError:
+        print("Emotion coefficients dict is not available")
+        emotion_coefficients = None
 
     # Encoder
     encoder_kernel_size = 5                      # Encoder kernel size
@@ -61,10 +69,12 @@ class Config:
 
     # Optimization
     mask_padding = False                         # Use mask padding
-    use_loss_coefficients = True                 # Use balancing coefficients
+    use_loss_coefficients = True               # Use balancing coefficients
     # Loss scale for coefficients
-    loss_scale = 1.5 / (np.mean(list(speaker_coefficients.values())) * np.mean(list(emotion_coefficients.values())))
-
+    if emotion_coefficients is not None and speaker_coefficients is not None:
+        loss_scale = 1.5 / (np.mean(list(speaker_coefficients.values())) * np.mean(list(emotion_coefficients.values())))
+    else:
+        loss_scale = None
 
     ### Waveglow params
     n_flows = 12                                 # Number of steps of flow
@@ -84,19 +94,20 @@ class Config:
     output_directory = "/logs"                   # Directory to save checkpoints
     log_file = "nvlog.json"                      # Filename for logging
 
-    anneal_steps = [700, 1200, 1700]             # Epochs after which decrease learning rate
+    anneal_steps = [500, 1000, 1500]             # Epochs after which decrease learning rate
     anneal_factor = 0.1                          # Factor for annealing learning rate
 
-    tacotron2_checkpoint = '/app/pretrained/t2_fp32_torch'   # Path to pre-trained Tacotron2 checkpoint for sample generation
-    waveglow_checkpoint = '/app/pretrained/wg_fp32_torch'    # Path to pre-trained WaveGlow checkpoint for sample generation
-    restore_from = '/logs/tacotron2/31-12-19/20-53-37/checkpoints/checkpoint_580'      # Checkpoint path to restore from
+    tacotron2_checkpoint = '/data/pretrained/t2_fp32_torch'   # Path to pre-trained Tacotron2 checkpoint for sample generation
+    waveglow_checkpoint = '/data/pretrained/wg_fp32_torch'    # Path to pre-trained WaveGlow checkpoint for sample generation
+    #restore_from = '/logs/default/04-01-20/17-38-01/checkpoints/checkpoint_2000'      # Checkpoint path to restore from
+    restore_from = '/data/pretrained/emotions_checkpoint_1000'      # Checkpoint path to restore from
 
     # Training params
-    epochs = 1701                                # Number of total epochs to run
-    epochs_per_checkpoint = 20                   # Number of epochs per checkpoint
+    epochs = 1501                               # Number of total epochs to run
+    epochs_per_checkpoint = 1                   # Number of epochs per checkpoint
     seed = 1234                                  # Seed for PyTorch random number generators
     dynamic_loss_scaling = True                  # Enable dynamic loss scaling
-    amp_run = False                              # Enable AMP
+    amp_run = False                              # Enable AMP (FP16) # TODO: Make it work
     cudnn_enabled = True                         # Enable cudnn
     cudnn_benchmark = False                      # Run cudnn benchmark
 
@@ -105,14 +116,14 @@ class Config:
     learning_rate = 1e-3                         # Learning rate
     weight_decay = 1e-6                          # Weight decay
     grad_clip_thresh = 1.0                       # Clip threshold for gradients
-    batch_size = 64                              # Batch size per GPU
+    batch_size = 24                              # Batch size per GPU
     grad_clip = 5.0                              # Enables gradient clipping and sets maximum gradient norm value
 
     # Dataset
     load_mel_from_dist = False                   # Loads mel spectrograms from disk instead of computing them on the fly
     text_cleaners = ['english_cleaners']         # Type of text cleaners for input text
-    training_files = '/data/train.txt'           # Path to training filelist
-    validation_files = '/data/val.txt'           # Path to validation filelist
+    training_files = '/train/train.txt'           # Path to training filelist
+    validation_files = '/train/val.txt'           # Path to validation filelist
 
     dist_url = 'tcp://localhost:23456'           # Url used to set up distributed training
     group_name = "group_name"                    # Distributed group name
@@ -139,31 +150,31 @@ class PreprocessingConfig:
     minimum_viable_dur = 0.05                    # min duration of audio
     text_limit = None                            # max text length (used by default)
     dur_limit = None                             # max audio duration (used by default)
-    n = 100000                                   # max size of training dataset per speaker
+    n = 500                                   # max size of training dataset per speaker
     start_from_preprocessed = True               # load data.csv - should be in output_directory
 
-    output_directory = '/data'
+    output_directory = '/train'
     data = [
         {
-            'path': '/raw-data/linda_johnson',
+            'path': 'data/raw-data/linda_johnson',
             'speaker_id': 0,
             'process_audio': False,
             'emotion_present': False
         },
-        # {
-        #    'path': '/raw-data/scarjo_the_dive_descript_grouped_50mil',
-        #    'speaker_id': 1,
-        #    'process_audio': True,
-        #    'emotion_present': False
-        # },
-        # {
-        #    'path': '/raw-data/scarjo_the_dive_descript_ungrouped',
-        #    'speaker_id': 1,
-        #    'process_audio': True,
-        #    'emotion_present': False
-        # },
         {
-            'path': '/raw-data/melissa',
+           'path': 'data/raw-data/scarjo_the_dive_descript_grouped_50mil',
+           'speaker_id': 1,
+           'process_audio': True,
+           'emotion_present': False
+        },
+        {
+           'path': 'data/raw-data/scarjo_the_dive_descript_ungrouped',
+           'speaker_id': 1,
+           'process_audio': True,
+           'emotion_present': False
+        },
+        {
+            'path': 'data/raw-data/mellisa',
             'speaker_id': 2,
             'process_audio': True,
             'emotion_present': True
@@ -187,3 +198,4 @@ class PreprocessingConfig:
         'surprised-normal': 13,
         'surprised-strong': 14
     }
+
