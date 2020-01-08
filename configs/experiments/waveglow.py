@@ -83,7 +83,7 @@ class Config:
     output_directory = "/logs"                   # Directory to save checkpoints
     log_file = "nvlog.json"                      # Filename for logging
 
-    anneal_steps = [700, 2100, 2200]             # Epochs after which decrease learning rate
+    anneal_steps = [400, 700, 1000]             # Epochs after which decrease learning rate
     anneal_factor = 0.1                          # Factor for annealing learning rate
 
     tacotron2_checkpoint = '/logs/tacotron2/04-01-20/05-59-57/checkpoints/checkpoint_1520'   # Path to pre-trained Tacotron2 checkpoint for sample generation
@@ -91,8 +91,8 @@ class Config:
     restore_from = '/logs/default/04-01-20/17-38-01/checkpoints/checkpoint_2000'      # Checkpoint path to restore from
 
     # Training params
-    epochs = 2251                                # Number of total epochs to run
-    epochs_per_checkpoint = 50                   # Number of epochs per checkpoint
+    epochs = 1001                                # Number of total epochs to run
+    epochs_per_checkpoint = 20                   # Number of epochs per checkpoint
     seed = 1234                                  # Seed for PyTorch random number generators
     dynamic_loss_scaling = True                  # Enable dynamic loss scaling
     amp_run = False                              # Enable AMP (FP16) # TODO: Make it work
