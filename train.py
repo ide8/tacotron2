@@ -57,7 +57,7 @@ parser.add_argument('--world-size', default=1, type=int, help='Number of process
 args = parser.parse_args()
 
 # Prepare config
-shutil.copyfile(os.path.join('configs', 'experiments', args.exp + '.py'), os.path.join('configs', '__init__.py'))
+#shutil.copyfile(os.path.join('configs', 'experiments', args.exp + '.py'), os.path.join('configs', '__init__.py'))
 
 # Reload Config
 configs = importlib.import_module('configs')
@@ -382,6 +382,7 @@ def main():
     try:
         sigma = model_config['sigma']
     except KeyError:
+        sigma = None
         if model_name == 'WaveGlow':
             model_config['sigma'] = Config.wg_sigma
             sigma = model_config['sigma']
