@@ -21,7 +21,6 @@
 * [Parameters](#parameters)
      * [Shared parameters](#shared-parameters)
      * [Shared audio/STFT parameters](#shared-audiostft-parameters)
-     * [Tacotron 2 parameters](#tacotron-2-parameters)
      * [WaveGlow parameters](#waveglow-parameters)
 * [Contributing](#contributing)
 
@@ -276,6 +275,13 @@ WaveGlow models.
 * `epochs` - number of epochs (Tacotron 2: 1501, WaveGlow: 1001)
 * `learning-rate` - learning rate (Tacotron 2: 1e-3, WaveGlow: 1e-4)
 * `batch-size` - batch size (Tacotron 2: 64, WaveGlow: 11)
+* `grad_clip_thresh` - gradient clipping treshold (0.1)
+* `anneal-steps` - epochs at which to anneal the learning rate (Tacotron2: 500/ 1000/ 1500, WaveGlow: 400/ 700/ 1000)
+* `anneal-factor` - factor by which to anneal the learning rate (0.1)  
+Latter two parameters are used to change learning rate at the points defined in `anneal-steps` according to:  
+`learning_rate = learning_rate * ( anneal_factor ** p)`,  
+where `p = 0` at the first step and increments by 1 each step.
+
 
 ### Shared audio/STFT parameters
 
@@ -286,14 +292,11 @@ WaveGlow models.
 * `mel-fmin` - lowest frequency in Hz (0.0)
 * `mel-fmax` - highest frequency in Hz (8.000)
 
-### Tacotron 2 parameters
-
-* `anneal-steps` - epochs at which to anneal the learning rate (Tacotron2: 500/ 1000/ 1500, WaveGlow: 400/ 700/ 1000)
-* `anneal-factor` - factor by which to anneal the learning rate (0.1)
 
 ### WaveGlow parameters
 
-* `segment-length` - segment length of input audio processed by the neural network (8000)
+* `segment-length` - segment length of input audio processed by the neural network (8000). Before passing to input, audio is padded or croped to `segment-length`.
+* `wn_config` - dictionary with parameters of affine coupling layers. Contains `n_layers`, `n_chanels`, `kernel_size`.
 
 ## Contributing
 If you've ever wanted to contribute to open source, and a great cause, now is your chance!
