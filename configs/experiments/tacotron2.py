@@ -173,7 +173,7 @@ class PreprocessingConfig:
            'emotion_present': False
         },
         {
-            'path': 'data/raw-data/melissa',
+            'path': 'data/raw-data/mellisa',
             'speaker_id': 2,
             'process_audio': True,
             'emotion_present': True

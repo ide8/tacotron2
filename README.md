@@ -2,13 +2,13 @@
 
 ## Table of Contents
 
-* [General decription](#general-decription)
+* [General description](#general-description)
 * [DONE](#done)
 * [TODO](#todo)
 * [Getting Started](#getting-started)
    * [Requirements](#requirements)
    * [Setup](#setup)
-* [Code strucutre description](#code-strucutre-description)
+* [Code structure description](#code-structure-description)
 * [Data Preprocessing](#data-preprocessing)
   * [Preparing for data preprocessing](#preparing-for-data-preprocessing)
   * [Run preprocessing](#run-preprocessing)
@@ -25,7 +25,7 @@
      * [WaveGlow parameters](#waveglow-parameters)
 * [Contributing](#contributing)
 
-## General decription
+## General description
 
 This Repository contains a sample code for Tacotron 2, WaveGlow with multi-speaker, emotion embeddings together with a script for data preprocessing.  
 Checkpoints and code originate from following sources:
@@ -96,9 +96,9 @@ Select container id of image with tag `taco` and log into container with:
 docker exec -it container_id bash
 ```
 
-## Code strucutre description
+## Code structure description
 
-Folders `tacotron2` and `waveglow` have scripts for Tacotron 2, WaveGlow models and consists of:  
+Folders `tacotron2` and `waveglow` have scripts for Tacotron 2, WaveGlow models and consist of:  
 
 * `<model_name>/model.py` - model architecture
 * `<model_name>/data_function.py` - data loading functions
@@ -106,34 +106,34 @@ Folders `tacotron2` and `waveglow` have scripts for Tacotron 2, WaveGlow models 
 
 Folder `common` contains common layers for both models (`common/layers.py`), utils (`common/utils.py`) and audio processing (`common/audio_processing.py` and `common/stft.py`).  
 
-`router` folder is used by training script to select an appropriate model
+Folder `router` is used by training script to select an appropriate model
 
 In the root directory:
 * `train.py` - script for model training
 * `preprocess.py` - performs audio processing and creates training and validation datasets
 * `inference.ipynb` - notebook for running inference
 
-Folder `configs` contains `__init__.py` with all parameters needed for training and data processing. Folder `configs/experiments` consists of all the experiments. `waveglow.py` and `tacotron2.py` is provided as examples for WaveGlow and Tacotron 2.
-On training or data processing start, parameters are copied from your experiment (in our case - `waveglow.py` or `tacotron2.py`) to `__init__.py`, from which they are used by the system.
+Folder `configs` contains `__init__.py` with all parameters needed for training and data processing. Folder `configs/experiments` consists of all the experiments. `waveglow.py` and `tacotron2.py` are provided as examples for WaveGlow and Tacotron 2.
+On training or data processing start, parameters are copied from your experiment (in our case - from `waveglow.py` or from `tacotron2.py`) to `__init__.py`, from which they are used by the system.
 
 ## Data preprocessing
 
 ### Preparing for data preprocessing
 
 1. For each speaker you have to have a folder named with speaker name, containing `wavs` folder and `metadata.csv` file with the next line format: `file_name.wav|text`.
-2. All necessary parameters for preprocessing should be set in `configs/experiments/waveglow.py` or in in `configs/experiments/tacatron2.py` the class `PreprocessingConfig`.
-3. If  you're running preprocessing first time, set `start_from_preprocessed` flag to **False**, `preprocess.py` will perform trimming of audio files up to `PreprocessingConfig.top_db` (cuts the silence in the beginning and the end), applies ffmpeg command in order to mono, make same sampling rate and bit rate for all the wavs in dataset. 
+2. All necessary parameters for preprocessing should be set in `configs/experiments/waveglow.py` or in `configs/experiments/tacatron2.py`, in the class `PreprocessingConfig`.
+3. If  you're running preprocessing first time, set `start_from_preprocessed` flag to **False**. `preprocess.py` performs trimming of audio files up to `PreprocessingConfig.top_db` (cuts the silence in the beginning and the end), applies ffmpeg command in order to mono, make same sampling rate and bit rate for all the wavs in dataset. 
 4. It saves a folder `wavs` with processed audio files and `data.csv` file in `PreprocessingConfig.output_directory` with the following format: `path|text|speaker_name|speaker_id|emotion|text_len|duration`.  
 5. Trimming and ffmpeg command are applied only to speakers, for which flag `process_audio` is **True**. Speakers with flag `emotion_present` is **False**, are treated as with emotion `neutral-normal`.
 6. You won't need `start_from_preprocessed = False` once you finish running preprocessing script. Only exception in case of new raw data comes in.
-7. Once `start_from_preprocessed` is set to **True**, script will load file `data.csv` (from the `start_from_preprocessed = False` run), and forms `train.txt` and `val.txt` out from `data.csv`.
+7. Once `start_from_preprocessed` is set to **True**, script loads file `data.csv` (created by the `start_from_preprocessed = False` run), and forms `train.txt` and `val.txt` out from `data.csv`.
 8. Main `PreprocessingConfig` parameters:
     1. `cpus` - defines number of cores for batch generator
     2. `sr` - defines sample ratio for reading and writing audio
     3. `emo_id_map` - dictionary for emotion name to emotion_id mapping
     4. `data[{'path'}]` - is path to folder named with speaker name and containing `wavs` folder and `metadata.csv` with the following line format: `file_name.wav|text|emotion (optional)`
 9. Preprocessing script forms training and validation datasets in the following way:
-    1. selects rows with audio duration and text length less or equal those for speaker `PreprocessingConfig.limit_by` (this is needed for proper batch size)
+    1. selects rows with audio duration and text length less or equal those for speaker `PreprocessingConfig.limit_by` (this step is needed for proper batch size)
     2. if such speaker is not present, than it selects rows within `PreprocessingConfig.text_limit` and `PreprocessingConfig.dur_limit`. Lower limit for audio is defined by `PreprocessingConfig.minimum_viable_dur`
     3. in order to be able to use the same batch size as NVIDIA guys, set `PreprocessingConfig.text_limit` to `linda_jonson`
     4. splits dataset randomly by ratio `train : val = 0.95 : 0.05`
@@ -143,7 +143,7 @@ On training or data processing start, parameters are copied from your experiment
 
 ### Run preprocessing
 
-Since both `waveglow.py` and `tacotron2.py` contains the class `PreprocessingConfig`, training and validation dataset can be produced by running any or them:  
+Since both scripts `waveglow.py` and `tacotron2.py` contain the class `PreprocessingConfig`, training and validation dataset can be produced by running any of them:  
 
 ```
 python preprocess.py --exp tacotron2
@@ -163,12 +163,12 @@ python preprocess.py --exp waveglow
 
 In `configs/experiment/tacatron2.py`, in the class `Config` set:
 1. `training_files` and `validation_files` - paths to `train.txt`, `val.txt`;
-2. `tacotron_checkpoint` - paths to pretrained Tacotron 2 if it exists (we were able to restore Waveglow from Nvidia, but Tacotron 2 code was edited to add speakers and emotions, so Tacotron 2 needs to be trained from scratch);
+2. `tacotron_checkpoint` - path to pretrained Tacotron 2 if it exist (we were able to restore Waveglow from Nvidia, but Tacotron 2 code was edited to add speakers and emotions, so Tacotron 2 needs to be trained from scratch);
 3. `speaker_coefficients` - path to `speaker_coefficients.json`;
 4. `emotion_coefficients` - path to `emotion_coefficients.json`;
 5. `output_directory` - path for writing logs and checkpoints;
 6. `use_emotions` - flag indicating emotions usage;
-7. `use_loss_coefficients` - flag indicating loss scaling due to possible data disbalance it temrs of both speakers and emotions; for balancing loss, set paths to jsons with coefficients in `emotion_coefficients` and `speaker_coefficients`;
+7. `use_loss_coefficients` - flag indicating loss scaling due to possible data disbalance in terms of both speakers and emotions; for balancing loss, set paths to jsons with coefficients in `emotion_coefficients` and `speaker_coefficients`;
 8.  `model_name` - `"Tacotron2"`.
   
 * Launch training
@@ -185,10 +185,10 @@ In `configs/experiment/tacatron2.py`, in the class `Config` set:
 
 In `configs/experiment/waveglow.py`, in the class `Config` set:
 1. `training_files` and `validation_files` - paths to `train.txt`, `val.txt`;
-2. `waveglow_checkpoint` - paths to pretrained Waveglow, restored from Nvidia. Download [checkopoint](https://drive.google.com/a/datarootlabs.com/uc?id=1xgfwcfIRoodQXMNTdHPhcm5GcZxnyE5E&export=download).  
+2. `waveglow_checkpoint` - path to pretrained Waveglow, restored from Nvidia. Download [checkopoint](https://drive.google.com/a/datarootlabs.com/uc?id=1xgfwcfIRoodQXMNTdHPhcm5GcZxnyE5E&export=download).  
 5. `output_directory` - path for writing logs and checkpoints;
-6. `use_emotions` - `False`;
-7. `use_loss_coefficients` - `False`;
+6. `use_emotions` - **False**;
+7. `use_loss_coefficients` - **False**;
 8.  `model_name` - `"WaveGlow"`.
 
 * Launch training
@@ -203,7 +203,7 @@ In `configs/experiment/waveglow.py`, in the class `Config` set:
 
 ## Running Tensorboard
 
-Once you made your model start training. You might want to see some progress of training:
+Once you made your model start training, you might want to see some progress of training:
 ```
 docker ps
 ```
@@ -219,11 +219,11 @@ Start Tensorboard:
  tensorboard --logdir=path_to_folder_with_logs --host=0.0.0.0
 ```
 
-Loss together is being written into tensorboard:
+Loss is being written into tensorboard:
 
 ![Tensorboard Scalars](/img/tacotron-scalars.png)
 
-Audio samples are saved into tensorbaord each `Config.epochs_per_checkpoint`. Transcripts for audios are listed in `Config.phrases`
+Audio samples together with attention alignments are saved into tensorbaord each `Config.epochs_per_checkpoint`. Transcripts for audios are listed in `Config.phrases`
 
 ![Tensorboard Audio](/img/tacotron-audio.png)
 
