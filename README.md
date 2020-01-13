@@ -22,6 +22,7 @@
      * [Shared parameters](#shared-parameters)
      * [Shared audio/STFT parameters](#shared-audiostft-parameters)
      * [WaveGlow parameters](#waveglow-parameters)
+     * [Tacotron parameters](#tacotron-parameters)
 * [Contributing](#contributing)
 
 ## General description
@@ -120,7 +121,7 @@ On training or data processing start, parameters are copied from your experiment
 ### Preparing for data preprocessing
 
 1. For each speaker you have to have a folder named with speaker name, containing `wavs` folder and `metadata.csv` file with the next line format: `file_name.wav|text`.
-2. All necessary parameters for preprocessing should be set in `configs/experiments/waveglow.py` or in `configs/experiments/tacatron2.py`, in the class `PreprocessingConfig`.
+2. All necessary parameters for preprocessing should be set in `configs/experiments/waveglow.py` or in `configs/experiments/tacotron2.py`, in the class `PreprocessingConfig`.
 3. If  you're running preprocessing first time, set `start_from_preprocessed` flag to **False**. `preprocess.py` performs trimming of audio files up to `PreprocessingConfig.top_db` (cuts the silence in the beginning and the end), applies ffmpeg command in order to mono, make same sampling rate and bit rate for all the wavs in dataset. 
 4. It saves a folder `wavs` with processed audio files and `data.csv` file in `PreprocessingConfig.output_directory` with the following format: `path|text|speaker_name|speaker_id|emotion|text_len|duration`.  
 5. Trimming and ffmpeg command are applied only to speakers, for which flag `process_audio` is **True**. Speakers with flag `emotion_present` is **False**, are treated as with emotion `neutral-normal`.
@@ -160,7 +161,7 @@ python preprocess.py --exp waveglow
 
 ### Tacotron 2
 
-In `configs/experiment/tacatron2.py`, in the class `Config` set:
+In `configs/experiment/tacotron2.py`, in the class `Config` set:
 1. `training_files` and `validation_files` - paths to `train.txt`, `val.txt`;
 2. `tacotron_checkpoint` - path to pretrained Tacotron 2 if it exist (we were able to restore Waveglow from Nvidia, but Tacotron 2 code was edited to add speakers and emotions, so Tacotron 2 needs to be trained from scratch);
 3. `speaker_coefficients` - path to `speaker_coefficients.json`;
@@ -275,12 +276,6 @@ WaveGlow models.
 * `epochs` - number of epochs (Tacotron 2: 1501, WaveGlow: 1001)
 * `learning-rate` - learning rate (Tacotron 2: 1e-3, WaveGlow: 1e-4)
 * `batch-size` - batch size (Tacotron 2: 64, WaveGlow: 11)
-* `grad_clip_thresh` - gradient clipping treshold (0.1)
-* `anneal-steps` - epochs at which to anneal the learning rate (Tacotron2: 500/ 1000/ 1500, WaveGlow: 400/ 700/ 1000)
-* `anneal-factor` - factor by which to anneal the learning rate (0.1)  
-Latter two parameters are used to change learning rate at the points defined in `anneal-steps` according to:  
-`learning_rate = learning_rate * ( anneal_factor ** p)`,  
-where `p = 0` at the first step and increments by 1 each step.
 
 
 ### Shared audio/STFT parameters
@@ -291,6 +286,15 @@ where `p = 0` at the first step and increments by 1 each step.
 * `win-length` - window size for FFT (1024)
 * `mel-fmin` - lowest frequency in Hz (0.0)
 * `mel-fmax` - highest frequency in Hz (8.000)
+
+### Tacotron parameters
+
+* `grad_clip_thresh` - gradient clipping treshold (0.1)
+* `anneal-steps` - epochs at which to anneal the learning rate (500/ 1000/ 1500)
+* `anneal-factor` - factor by which to anneal the learning rate (0.1) 
+These two parameters are used to change learning rate at the points defined in `anneal-steps` according to:  
+`learning_rate = learning_rate * ( anneal_factor ** p)`,  
+where `p = 0` at the first step and increments by 1 each step.
 
 
 ### WaveGlow parameters
