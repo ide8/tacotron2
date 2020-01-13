@@ -114,7 +114,7 @@ class Config:
     use_saved_learning_rate = False
     learning_rate = 1e-3                         # Learning rate
     weight_decay = 1e-6                          # Weight decay
-    grad_clip_thresh = 1.0                       # Clip threshold for gradients
+    grad_clip_thresh = 0.1                       # Clip threshold for gradients
     batch_size = 64                              # Batch size per GPU
 
     # Dataset
