@@ -466,8 +466,12 @@ def main():
                 if Config.amp_run:
                     with amp.scale_loss(loss, optimizer) as scaled_loss:
                         scaled_loss.backward()
+                        torch.nn.utils.clip_grad_norm_(
+                        amp.master_params(optimizer), Config.grad_clip_thresh)
                 else:
                     loss.backward()
+                    torch.nn.utils.clip_grad_norm_(
+                        model.parameters(), Config.grad_clip_thresh)
 
                 optimizer.step()
 
