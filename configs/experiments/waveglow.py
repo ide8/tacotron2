@@ -95,7 +95,7 @@ class Config:
     output_directory = "/logs"                   # Directory to save checkpoints
     log_file = "nvlog.json"                      # Filename for logging
 
-    anneal_steps = [400, 700, 1000]             # Epochs after which decrease learning rate
+    anneal_steps = None             # Epochs after which decrease learning rate
     anneal_factor = 0.1                          # Factor for annealing learning rate
 
     tacotron2_checkpoint = '/logs/tacotron2/04-01-20/05-59-57/checkpoints/checkpoint_1520'   # Path to pre-trained Tacotron2 checkpoint for sample generation
@@ -115,9 +115,8 @@ class Config:
     use_saved_learning_rate = False
     learning_rate = 1e-3                         # Learning rate
     weight_decay = 1e-6                          # Weight decay
-    grad_clip_thresh = 1.0                       # Clip threshold for gradients
     batch_size = 11                              # Batch size per GPU
-    grad_clip = 5.0                              # Enables gradient clipping and sets maximum gradient norm value
+
 
     # Dataset
     load_mel_from_dist = False                   # Loads mel spectrograms from disk instead of computing them on the fly
