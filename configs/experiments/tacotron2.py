@@ -30,7 +30,7 @@ class Config:
         speaker_coefficients = None
 
     # Emotions
-    use_emotions = True                         # Use emotions
+    use_emotions = True                          # Use emotions
     n_emotions = 15                              # N emotions
     emotions_embedding_dim = 8                   # Emotion embedding dimension
     try:
@@ -99,12 +99,11 @@ class Config:
 
     tacotron2_checkpoint = '/data/pretrained/t2_fp32_torch'   # Path to pre-trained Tacotron2 checkpoint for sample generation
     waveglow_checkpoint = '/data/pretrained/wg_fp32_torch'    # Path to pre-trained WaveGlow checkpoint for sample generation
-    #restore_from = '/logs/default/04-01-20/17-38-01/checkpoints/checkpoint_2000'      # Checkpoint path to restore from
-    restore_from = '/data/pretrained/emotions_checkpoint_1000'      # Checkpoint path to restore from
+    restore_from = ''                                         # Checkpoint path to restore from
 
     # Training params
     epochs = 1501                               # Number of total epochs to run
-    epochs_per_checkpoint = 1                   # Number of epochs per checkpoint
+    epochs_per_checkpoint = 50                   # Number of epochs per checkpoint
     seed = 1234                                  # Seed for PyTorch random number generators
     dynamic_loss_scaling = True                  # Enable dynamic loss scaling
     amp_run = False                              # Enable AMP (FP16) # TODO: Make it work
@@ -115,9 +114,8 @@ class Config:
     use_saved_learning_rate = False
     learning_rate = 1e-3                         # Learning rate
     weight_decay = 1e-6                          # Weight decay
-    grad_clip_thresh = 1.0                       # Clip threshold for gradients
-    batch_size = 24                              # Batch size per GPU
-    grad_clip = 5.0                              # Enables gradient clipping and sets maximum gradient norm value
+    grad_clip_thresh = 1                       # Clip threshold for gradients
+    batch_size = 64                              # Batch size per GPU
 
     # Dataset
     load_mel_from_dist = False                   # Loads mel spectrograms from disk instead of computing them on the fly
@@ -150,8 +148,8 @@ class PreprocessingConfig:
     minimum_viable_dur = 0.05                    # min duration of audio
     text_limit = None                            # max text length (used by default)
     dur_limit = None                             # max audio duration (used by default)
-    n = 500                                   # max size of training dataset per speaker
-    start_from_preprocessed = True               # load data.csv - should be in output_directory
+    n = 5000                                   # max size of training dataset per speaker
+    start_from_preprocessed = False               # load data.csv - should be in output_directory
 
     output_directory = '/train'
     data = [

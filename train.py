@@ -35,6 +35,8 @@ import importlib
 import numpy as np
 from datetime import datetime
 from contextlib import contextmanager
+import matplotlib.pyplot as plt
+plt.rcParams.update({'font.size': 24})
 
 # Torch
 import torch
@@ -186,17 +188,19 @@ def save_sample(model_name, model_path):
                 if Config.use_emotions:
                     for emotion, emotion_id in PConfig.emo_id_map.items():
                         e_id = torch.IntTensor([emotion_id]).cuda().long()
-                        _, mel, _, _ = t2.infer(inp, s_id, e_id)
+                        _, mel, _, alignments = t2.infer(inp, s_id, e_id)
                         audio = wg.infer(mel)
                         audio_numpy = audio[0].data.cpu().numpy()
+                        alignments_numpy = alignments[0].data.cpu().numpy()
 
-                        yield speaker_id, emotion, audio_numpy
+                        yield speaker_id, emotion, audio_numpy, alignments_numpy
                 else:
-                    _, mel, _, _ = t2.infer(inp, s_id)
+                    _, mel, _, alignments = t2.infer(inp, s_id)
                     audio = wg.infer(mel)
                     audio_numpy = audio[0].data.cpu().numpy()
+                    alignments_numpy = alignments[0].data.cpu().numpy()
 
-                    yield speaker_id, None, audio_numpy
+                    yield speaker_id, None, audio_numpy, alignments_numpy
 
 # adapted from: https://discuss.pytorch.org/t/opinion-eval-should-be-a-context-manager/18998/3
 # Following snippet is licensed under MIT license
@@ -382,6 +386,7 @@ def main():
     try:
         sigma = model_config['sigma']
     except KeyError:
+        sigma = None
         if model_name == 'WaveGlow':
             model_config['sigma'] = Config.wg_sigma
             sigma = model_config['sigma']
@@ -461,8 +466,12 @@ def main():
                 if Config.amp_run:
                     with amp.scale_loss(loss, optimizer) as scaled_loss:
                         scaled_loss.backward()
+                        torch.nn.utils.clip_grad_norm_(
+                        amp.master_params(optimizer), Config.grad_clip_thresh)
                 else:
                     loss.backward()
+                    torch.nn.utils.clip_grad_norm_(
+                        model.parameters(), Config.grad_clip_thresh)
 
                 optimizer.step()
 
@@ -503,13 +512,14 @@ def main():
             if (epoch % Config.epochs_per_checkpoint == 0) and args.rank == 0:
                 checkpoint_path = os.path.join(checkpoint_directory, 'checkpoint_{}'.format(epoch))
                 save_checkpoint(model, epoch, model_config, optimizer, checkpoint_path)
-
                 # Save test audio files to tensorboard
-                for i, (speaker_id, emotion, sample) in enumerate(save_sample(model_name, checkpoint_path)):
+                for i, (speaker_id, emotion, sample, alignment) in enumerate(save_sample(model_name, checkpoint_path)):
                     tag = 'epoch_{}/infer:speaker_{}_sample_{}'.format(epoch, speaker_id, i)
                     tag = '{}_emotion_{}'.format(tag, emotion) if Config.use_emotions else tag
-
                     tensorboard_writer.add_audio(tag=tag, snd_tensor=sample, sample_rate=Config.sampling_rate)
+                    fig = plt.figure(figsize=(10, 10))
+                    plt.imshow(alignment, aspect='auto')
+                    tensorboard_writer.add_figure(tag=tag, figure=fig)
 
     tensorboard_writer.close()
 
