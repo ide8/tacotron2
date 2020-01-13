@@ -53,7 +53,7 @@ class Config:
     attention_location_kernel_size = 31          # Kernel size for location-sensitive attention
 
     # Decoder
-    n_frames_per_step = 10                        # Number of frames processed per step
+    n_frames_per_step = 1                        # Number of frames processed per step
     decoder_rnn_dim = 1024                       # Number of units in decoder LSTM
     prenet_dim = 256                             # Number of ReLU units in prenet layers
     max_decoder_steps = 2000                     # Maximum number of output mel spectrograms
@@ -99,7 +99,7 @@ class Config:
 
     tacotron2_checkpoint = '/data/pretrained/t2_fp32_torch'   # Path to pre-trained Tacotron2 checkpoint for sample generation
     waveglow_checkpoint = '/data/pretrained/wg_fp32_torch'    # Path to pre-trained WaveGlow checkpoint for sample generation
-    restore_from = '/data/pretrained/emotions_checkpoint_1000'      # Checkpoint path to restore from
+    restore_from = ''                                         # Checkpoint path to restore from
 
     # Training params
     epochs = 1501                               # Number of total epochs to run
@@ -115,7 +115,7 @@ class Config:
     learning_rate = 1e-3                         # Learning rate
     weight_decay = 1e-6                          # Weight decay
     grad_clip_thresh = 1.0                       # Clip threshold for gradients
-    batch_size = 40                              # Batch size per GPU
+    batch_size = 64                              # Batch size per GPU
 
     # Dataset
     load_mel_from_dist = False                   # Loads mel spectrograms from disk instead of computing them on the fly
@@ -146,8 +146,8 @@ class PreprocessingConfig:
     top_db = 40                                  # level to trim audio
     limit_by = 'linda_johnson'                   # speaker to measure text_limit, dur_limit
     minimum_viable_dur = 0.05                    # min duration of audio
-    text_limit = 188                            # max text length (used by default)
-    dur_limit = 10                             # max audio duration (used by default)
+    text_limit = None                            # max text length (used by default)
+    dur_limit = None                             # max audio duration (used by default)
     n = 5000                                   # max size of training dataset per speaker
     start_from_preprocessed = False               # load data.csv - should be in output_directory
 

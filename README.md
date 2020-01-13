@@ -276,6 +276,7 @@ WaveGlow models.
 * `epochs` - number of epochs (Tacotron 2: 1501, WaveGlow: 1001)
 * `learning-rate` - learning rate (Tacotron 2: 1e-3, WaveGlow: 1e-4)
 * `batch-size` - batch size (Tacotron 2: 64, WaveGlow: 11)
+* `grad_clip_thresh` - gradient clipping treshold (0.1)
 
 
 ### Shared audio/STFT parameters
@@ -289,7 +290,6 @@ WaveGlow models.
 
 ### Tacotron parameters
 
-* `grad_clip_thresh` - gradient clipping treshold (0.1)
 * `anneal-steps` - epochs at which to anneal the learning rate (500/ 1000/ 1500)
 * `anneal-factor` - factor by which to anneal the learning rate (0.1) 
 These two parameters are used to change learning rate at the points defined in `anneal-steps` according to:  
