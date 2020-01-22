@@ -59,13 +59,12 @@ parser.add_argument('--world-size', default=1, type=int, help='Number of process
 args = parser.parse_args()
 
 # Prepare config
-shutil.copyfile(os.path.join('configs', 'experiments', args.exp + '.py'), os.path.join('configs', '__init__.py'))
+#shutil.copyfile(os.path.join('configs', 'experiments', args.exp + '.py'), os.path.join('configs', '__init__.py'))
 
 # Reload Config
 configs = importlib.import_module('configs')
 configs = importlib.reload(configs)
 
-print(configs)
 
 Config = configs.Config
 PConfig = configs.PreprocessingConfig
@@ -316,6 +315,32 @@ def balance_loss(x, y, y_pred, criterion):
     return Config.loss_scale * loss
 
 
+def remove_crackle(d, h, s):
+    """
+    Args:
+        d: audio time series, np.array
+        h: threshold for median
+        s: length of slices to apply
+
+    Returns: filtered audio time series
+
+    """
+    n = int(np.floor(d.shape[0] / h))
+    for i in np.arange(1, n):
+        slicei = d[i * h: (i + 1) * h]
+        mediani = np.median(np.abs(slicei))
+        if np.abs(mediani) < s:
+            d[i * h: (i + 1) * h] = d[i * h: (i + 1) * h] * 0
+        j = i + 0.5
+        slicej = d[int((j) * h): int((j + 1) * h)]
+        medianj = np.median(np.abs(slicej))
+        if np.abs(medianj) < s:
+            d[int(j * h): int((j + 1) * h)] = d[int(j * h): int((j + 1) * h)] * 0
+
+    d[int(d.shape[0] - h/4):] = d[int(d.shape[0] - h/4):] * 0
+
+    return d
+
 def main():
     # Experiment dates
     str_date, str_time = datetime.now().strftime("%d-%m-%yT%H-%M-%S").split('T')
@@ -369,7 +394,7 @@ def main():
     # Define Optimizer
     optimizer = torch.optim.Adam(model.parameters(),
                                  lr=Config.learning_rate,
-                                 weight_decay=Config.weight_decay)
+                                weight_decay=Config.weight_decay)
 
     # Restore optimizer state
     if checkpoint and 'optimizer_state_dict' in checkpoint:
@@ -427,6 +452,7 @@ def main():
     else:
         for epoch in range(start_epoch, Config.epochs):
 
+
             epoch_start_time = time.time()
 
             # Used to calculate avg items/sec over epoch
@@ -437,7 +463,10 @@ def main():
             train_epoch_avg_items_per_sec = 0.0
             num_iters = 0
 
+
+
             for i, batch in enumerate(train_loader):
+
                 iter_start_time = time.time()
                 adjust_learning_rate(epoch, optimizer, learning_rate=Config.learning_rate,
                                      anneal_steps=Config.anneal_steps, anneal_factor=Config.anneal_factor)
@@ -482,12 +511,17 @@ def main():
                 items_per_sec = reduced_num_items/iter_time
                 train_epoch_avg_items_per_sec += items_per_sec
 
+
+
                 print('{} - Batch: {}/{} epoch {}'.format(iter_time, i, len(train_loader), epoch))
+
+
 
             epoch_stop_time = time.time()
 
             epoch_time = epoch_stop_time - epoch_start_time
             train_epoch_items_per_sec = reduced_num_items_epoch / epoch_time
+
             train_epoch_avg_items_per_sec = train_epoch_avg_items_per_sec / num_iters if num_iters > 0 else 0.0
             train_epoch_avg_loss = train_epoch_avg_loss / num_iters if num_iters > 0 else 0.0
             epoch_val_loss = validate(model, criterion, valset, Config.batch_size, args.world_size,
@@ -514,6 +548,9 @@ def main():
                 save_checkpoint(model, epoch, model_config, optimizer, checkpoint_path)
                 # Save test audio files to tensorboard
                 for i, (speaker_id, emotion, sample, alignment) in enumerate(save_sample(model_name, checkpoint_path)):
+
+                    sample = remove_crackle(sample, Config.wdth, Config.snst)
+
                     tag = 'epoch_{}/infer:speaker_{}_sample_{}'.format(epoch, speaker_id, i)
                     tag = '{}_emotion_{}'.format(tag, emotion) if Config.use_emotions else tag
                     tensorboard_writer.add_audio(tag=tag, snd_tensor=sample, sample_rate=Config.sampling_rate)
@@ -522,7 +559,6 @@ def main():
                     tensorboard_writer.add_figure(tag=tag, figure=fig)
 
     tensorboard_writer.close()
-
 
 if __name__ == '__main__':
     main()

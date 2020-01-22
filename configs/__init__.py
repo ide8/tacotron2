@@ -15,6 +15,10 @@ class Config:
     n_mel_channels = 80                          # Number of bins in mel-spectrograms
     max_wav_value = 32768.0                      # Maximum audiowave value
 
+    # Audio postprocessing params
+    snst = 0.00005                              # filter sensitivity
+    wdth = 1000                                   # width of filter
+
     ### Tacotron Params
     # Symbols
     n_symbols = len(symbols)                     # Number of symbols in dictionary
@@ -97,17 +101,17 @@ class Config:
     anneal_steps = [500, 1000, 1500]             # Epochs after which decrease learning rate
     anneal_factor = 0.1                          # Factor for annealing learning rate
 
-    tacotron2_checkpoint = '/data/pretrained/t2_fp32_torch'   # Path to pre-trained Tacotron2 checkpoint for sample generation
-    waveglow_checkpoint = '/data/pretrained/wg_fp32_torch'    # Path to pre-trained WaveGlow checkpoint for sample generation
+    tacotron2_checkpoint = '/data/taco_v3_1520'   # Path to pre-trained Tacotron2 checkpoint for sample generation
+    waveglow_checkpoint = '/data/wg_v3_2250'    # Path to pre-trained WaveGlow checkpoint for sample generation
     #restore_from = '/logs/default/04-01-20/17-38-01/checkpoints/checkpoint_2000'      # Checkpoint path to restore from
-    restore_from = '/data/pretrained/emotions_checkpoint_1000'      # Checkpoint path to restore from
+    restore_from = '/data/taco_v3_1520'      # Checkpoint path to restore from
 
     # Training params
-    epochs = 1501                               # Number of total epochs to run
+    epochs = 3000                               # Number of total epochs to run
     epochs_per_checkpoint = 1                   # Number of epochs per checkpoint
     seed = 1234                                  # Seed for PyTorch random number generators
     dynamic_loss_scaling = True                  # Enable dynamic loss scaling
-    amp_run = False                              # Enable AMP (FP16) # TODO: Make it work
+    amp_run = False                                  # Enable AMP (FP16) # TODO: Make it work
     cudnn_enabled = True                         # Enable cudnn
     cudnn_benchmark = False                      # Run cudnn benchmark
 
@@ -138,6 +142,7 @@ class Config:
             'Hi.',
             'I would like to eat a Hamburger. Would you like to join me?',
             'Do you have any hobbies?'
+
         ]
     }
 
