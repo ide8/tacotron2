@@ -265,7 +265,7 @@ class Decoder(nn.Module):
         self.early_stopping = early_stopping
 
         self.prenet = Prenet(
-            n_mel_channels * n_frames_per_step,
+            n_mel_channels,
             [prenet_dim, prenet_dim])
 
         self.attention_rnn = nn.LSTMCell(
@@ -302,6 +302,7 @@ class Decoder(nn.Module):
         B = memory.size(0)
         decoder_input = Variable(memory.data.new(
             B, self.n_mel_channels * self.n_frames_per_step).zero_())
+
         return decoder_input
 
     def initialize_decoder_states(self, memory, mask):
@@ -349,12 +350,15 @@ class Decoder(nn.Module):
 
         """
         # (B, n_mel_channels, T_out) -> (B, T_out, n_mel_channels)
-        decoder_inputs = decoder_inputs.transpose(1, 2)
+
+        decoder_inputs = decoder_inputs.transpose(1, 2).contiguous()
         decoder_inputs = decoder_inputs.view(
             decoder_inputs.size(0),
             int(decoder_inputs.size(1)/self.n_frames_per_step), -1)
         # (B, T_out, n_mel_channels) -> (T_out, B, n_mel_channels)
         decoder_inputs = decoder_inputs.transpose(0, 1)
+
+
         return decoder_inputs
 
     def parse_decoder_outputs(self, mel_outputs, gate_outputs, alignments):
@@ -368,14 +372,12 @@ class Decoder(nn.Module):
         RETURNS
         -------
         mel_outputs:
-        gate_outpust: gate output energies
+        gate_outputs: gate output energies
         alignments:
         """
-        #print('Len Alignments:', len(alignments))
         # (T_out, B) -> (B, T_out)
         alignments = torch.stack(alignments).transpose(0, 1)
         # (T_out, B) -> (B, T_out)
-        #print('Len Gate Outputs:', len(gate_outputs))
 
         gate_outputs = torch.stack(gate_outputs).transpose(0, 1)
         gate_outputs = gate_outputs.contiguous()
@@ -388,6 +390,8 @@ class Decoder(nn.Module):
         mel_outputs = mel_outputs.transpose(1, 2)
 
         return mel_outputs, gate_outputs, alignments
+
+
 
     def decode(self, decoder_input):
         """ Decoder step using stored states, attention and memory
@@ -402,6 +406,7 @@ class Decoder(nn.Module):
         attention_weights:
         """
         cell_input = torch.cat((decoder_input, self.attention_context), -1)
+
 
         self.attention_hidden, self.attention_cell = self.attention_rnn(
             cell_input, (self.attention_hidden, self.attention_cell))
@@ -429,7 +434,9 @@ class Decoder(nn.Module):
         decoder_output = self.linear_projection(
             decoder_hidden_attention_context)
 
+
         gate_prediction = self.gate_layer(decoder_hidden_attention_context)
+
         return decoder_output, gate_prediction, self.attention_weights
 
     def forward(self, memory, decoder_inputs, memory_lengths):
@@ -450,23 +457,30 @@ class Decoder(nn.Module):
         decoder_input = self.get_go_frame(memory).unsqueeze(0)
         decoder_inputs = self.parse_decoder_inputs(decoder_inputs)
         decoder_inputs = torch.cat((decoder_input, decoder_inputs), dim=0)
-        decoder_inputs = self.prenet(decoder_inputs)
+
+        decoder_input_frames = []
+        z = int(decoder_inputs.size(2) / self.n_frames_per_step)
+        for i in range(self.n_frames_per_step):
+            decoder_input_frames.append(self.prenet(decoder_inputs[:, :, i*z:(i+1)*z]))
 
         self.initialize_decoder_states(
             memory, mask=~get_mask_from_lengths(memory_lengths))
 
         mel_outputs, gate_outputs, alignments = [], [], []
-        while len(mel_outputs) < decoder_inputs.size(0) - 1:
-            decoder_input = decoder_inputs[len(mel_outputs)]
-            mel_output, gate_output, attention_weights = self.decode(
-                decoder_input)
+
+        while len(mel_outputs) < decoder_input_frames[0].size(0) - 1:
+            for input_frame in decoder_input_frames:
+                decoder_input = input_frame[len(mel_outputs)]
+
+                mel_output, gate_output, attention_weights = self.decode(
+                    decoder_input)
+                gate_outputs += [gate_output.squeeze() if memory.shape[0] > 1 else gate_output]
+                alignments += [attention_weights]
 
             mel_outputs += [mel_output.squeeze(1)]
-            gate_outputs += [gate_output.squeeze() if memory.shape[0] > 1 else gate_output]
-            alignments += [attention_weights]
 
         mel_outputs, gate_outputs, alignments = self.parse_decoder_outputs(
-            mel_outputs, gate_outputs, alignments)
+                mel_outputs, gate_outputs, alignments)
 
         return mel_outputs, gate_outputs, alignments
 
@@ -489,13 +503,19 @@ class Decoder(nn.Module):
         mel_lengths = torch.zeros([memory.size(0)], dtype=torch.int32).cuda()
         not_finished = torch.ones([memory.size(0)], dtype=torch.int32).cuda()
         mel_outputs, gate_outputs, alignments = [], [], []
+        z = int(decoder_input.size(1) / self.n_frames_per_step)
         while True:
-            decoder_input = self.prenet(decoder_input)
-            mel_output, gate_output, alignment = self.decode(decoder_input)
+            decoder_input_frames = []
+            for i in range(self.n_frames_per_step):
+                decoder_input_frames.append(decoder_input[:, i * z:(i + 1) * z])
+
+            for input_frame in decoder_input_frames:
+                mel_output, gate_output, alignment = self.decode(self.prenet(input_frame))
+                gate_outputs += [gate_output]
+                alignments += [alignment]
 
             mel_outputs += [mel_output.squeeze(1)]
-            gate_outputs += [gate_output]
-            alignments += [alignment]
+
             dec = torch.le(torch.sigmoid(gate_output.data),
                            self.gate_threshold).to(torch.int32).squeeze(1)
 
@@ -528,6 +548,7 @@ class Tacotron2(nn.Module):
                  postnet_embedding_dim, postnet_kernel_size,
                  postnet_n_convolutions, decoder_no_early_stopping, **kwargs):
         super(Tacotron2, self).__init__()
+
         self.mask_padding = mask_padding
         self.n_mel_channels = n_mel_channels
         self.n_frames_per_step = n_frames_per_step
@@ -619,7 +640,6 @@ class Tacotron2(nn.Module):
             embedded_emotions = self.emotions_embedding(emotion_ids)
             embedded_emotions = embedded_emotions.expand(-1, max_len, -1)
             outputs.append(embedded_emotions)
-
         # Combine all embeddings embeddings
         merged_outputs = torch.cat(outputs, -1)
 
@@ -658,9 +678,11 @@ class Tacotron2(nn.Module):
         # Merge embeddings
         merged_outputs = torch.cat(outputs, -1)
 
+
         # Decode
         mel_outputs, gate_outputs, alignments = self.decoder.infer(
             merged_outputs)
+
 
         # Post
         mel_outputs_postnet = self.postnet(mel_outputs)

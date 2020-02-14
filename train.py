@@ -65,7 +65,6 @@ shutil.copyfile(os.path.join('configs', 'experiments', args.exp + '.py'), os.pat
 configs = importlib.import_module('configs')
 configs = importlib.reload(configs)
 
-print(configs)
 
 Config = configs.Config
 PConfig = configs.PreprocessingConfig
@@ -73,6 +72,8 @@ PConfig = configs.PreprocessingConfig
 # Config dependent imports
 from tacotron2.text import text_to_sequence
 from router import models, loss_functions, data_functions
+
+from common.utils import remove_crackle
 
 
 def reduce_tensor(tensor, num_gpus):
@@ -426,7 +427,6 @@ def main():
         print('Checkpoint epoch {} >= total epochs {}'.format(start_epoch, Config.epochs))
     else:
         for epoch in range(start_epoch, Config.epochs):
-
             epoch_start_time = time.time()
 
             # Used to calculate avg items/sec over epoch
@@ -438,6 +438,7 @@ def main():
             num_iters = 0
 
             for i, batch in enumerate(train_loader):
+
                 iter_start_time = time.time()
                 adjust_learning_rate(epoch, optimizer, learning_rate=Config.learning_rate,
                                      anneal_steps=Config.anneal_steps, anneal_factor=Config.anneal_factor)
@@ -488,6 +489,7 @@ def main():
 
             epoch_time = epoch_stop_time - epoch_start_time
             train_epoch_items_per_sec = reduced_num_items_epoch / epoch_time
+
             train_epoch_avg_items_per_sec = train_epoch_avg_items_per_sec / num_iters if num_iters > 0 else 0.0
             train_epoch_avg_loss = train_epoch_avg_loss / num_iters if num_iters > 0 else 0.0
             epoch_val_loss = validate(model, criterion, valset, Config.batch_size, args.world_size,
@@ -514,6 +516,9 @@ def main():
                 save_checkpoint(model, epoch, model_config, optimizer, checkpoint_path)
                 # Save test audio files to tensorboard
                 for i, (speaker_id, emotion, sample, alignment) in enumerate(save_sample(model_name, checkpoint_path)):
+
+                    sample = remove_crackle(sample, Config.wdth, Config.snst)
+
                     tag = 'epoch_{}/infer:speaker_{}_sample_{}'.format(epoch, speaker_id, i)
                     tag = '{}_emotion_{}'.format(tag, emotion) if Config.use_emotions else tag
                     tensorboard_writer.add_audio(tag=tag, snd_tensor=sample, sample_rate=Config.sampling_rate)
