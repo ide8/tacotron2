@@ -59,7 +59,7 @@ parser.add_argument('--world-size', default=1, type=int, help='Number of process
 args = parser.parse_args()
 
 # Prepare config
-#shutil.copyfile(os.path.join('configs', 'experiments', args.exp + '.py'), os.path.join('configs', '__init__.py'))
+shutil.copyfile(os.path.join('configs', 'experiments', args.exp + '.py'), os.path.join('configs', '__init__.py'))
 
 # Reload Config
 configs = importlib.import_module('configs')
@@ -72,6 +72,8 @@ PConfig = configs.PreprocessingConfig
 # Config dependent imports
 from tacotron2.text import text_to_sequence
 from router import models, loss_functions, data_functions
+
+from common.utils import remove_crackle
 
 
 def reduce_tensor(tensor, num_gpus):
@@ -315,32 +317,6 @@ def balance_loss(x, y, y_pred, criterion):
     return Config.loss_scale * loss
 
 
-def remove_crackle(d, h, s):
-    """
-    Args:
-        d: audio time series, np.array
-        h: threshold for median
-        s: length of slices to apply
-
-    Returns: filtered audio time series
-
-    """
-    n = int(np.floor(d.shape[0] / h))
-    for i in np.arange(1, n):
-        slicei = d[i * h: (i + 1) * h]
-        mediani = np.median(np.abs(slicei))
-        if np.abs(mediani) < s:
-            d[i * h: (i + 1) * h] = d[i * h: (i + 1) * h] * 0
-        j = i + 0.5
-        slicej = d[int((j) * h): int((j + 1) * h)]
-        medianj = np.median(np.abs(slicej))
-        if np.abs(medianj) < s:
-            d[int(j * h): int((j + 1) * h)] = d[int(j * h): int((j + 1) * h)] * 0
-
-    d[int(d.shape[0] - h/4):] = d[int(d.shape[0] - h/4):] * 0
-
-    return d
-
 def main():
     # Experiment dates
     str_date, str_time = datetime.now().strftime("%d-%m-%yT%H-%M-%S").split('T')
@@ -394,7 +370,7 @@ def main():
     # Define Optimizer
     optimizer = torch.optim.Adam(model.parameters(),
                                  lr=Config.learning_rate,
-                                weight_decay=Config.weight_decay)
+                                 weight_decay=Config.weight_decay)
 
     # Restore optimizer state
     if checkpoint and 'optimizer_state_dict' in checkpoint:
@@ -451,8 +427,6 @@ def main():
         print('Checkpoint epoch {} >= total epochs {}'.format(start_epoch, Config.epochs))
     else:
         for epoch in range(start_epoch, Config.epochs):
-
-
             epoch_start_time = time.time()
 
             # Used to calculate avg items/sec over epoch
@@ -462,8 +436,6 @@ def main():
             train_epoch_avg_loss = 0.0
             train_epoch_avg_items_per_sec = 0.0
             num_iters = 0
-
-
 
             for i, batch in enumerate(train_loader):
 
@@ -511,11 +483,7 @@ def main():
                 items_per_sec = reduced_num_items/iter_time
                 train_epoch_avg_items_per_sec += items_per_sec
 
-
-
                 print('{} - Batch: {}/{} epoch {}'.format(iter_time, i, len(train_loader), epoch))
-
-
 
             epoch_stop_time = time.time()
 
@@ -559,6 +527,7 @@ def main():
                     tensorboard_writer.add_figure(tag=tag, figure=fig)
 
     tensorboard_writer.close()
+
 
 if __name__ == '__main__':
     main()

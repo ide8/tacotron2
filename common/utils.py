@@ -67,3 +67,30 @@ def to_gpu(x):
     if torch.cuda.is_available():
         x = x.cuda(non_blocking=True)
     return torch.autograd.Variable(x)
+
+
+def remove_crackle(d, h, s):
+    """
+    Args:
+        d: audio time series, np.array
+        h: threshold for median
+        s: length of slices to apply
+
+    Returns: filtered audio time series
+
+    """
+    n = int(np.floor(d.shape[0] / h))
+    for i in np.arange(1, n):
+        slice_i = d[i * h: (i + 1) * h]
+        median_i = np.median(np.abs(slice_i))
+        if np.abs(median_i) < s:
+            d[i * h: (i + 1) * h] = d[i * h: (i + 1) * h] * 0
+        j = i + 0.5
+        slice_j = d[int((j) * h): int((j + 1) * h)]
+        median_j = np.median(np.abs(slice_j))
+        if np.abs(median_j) < s:
+            d[int(j * h): int((j + 1) * h)] = d[int(j * h): int((j + 1) * h)] * 0
+
+    d[int(d.shape[0] - h/4):] = d[int(d.shape[0] - h/4):] * 0
+
+    return d
