@@ -16,8 +16,8 @@ class Config:
     max_wav_value = 32768.0                      # Maximum audiowave value
 
     # Audio postprocessing params
-    snst = 0.00005                              # filter sensitivity
-    wdth = 1000                                   # width of filter
+    snst = 0.00005                               # filter sensitivity
+    wdth = 1000                                  # width of filter
 
     ### Tacotron Params
     # Symbols
