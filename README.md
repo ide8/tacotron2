@@ -50,7 +50,8 @@ Checkpoints and code originate from following sources:
 - [x] make training work at FP16
 
 ## TODO:
-- [ ] Add multi-spot instance training for AWS
+- [ ] make it work with pytorch-1.4.0
+- [ ] add multi-spot instance training for AWS
 
 ## Getting Started
 
