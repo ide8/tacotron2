@@ -39,18 +39,18 @@ Checkpoints and code originate from following sources:
 ## Done:
 
 - [x] took all the best code parts from all of the 5 sources above
-- [x] cleaned the code and fixed some of the mistakes
-- [x] changed code structure
-- [x] added multi-speaker and emotion embendings
-- [x] added preprocessing
-- [x] moved all the configs from command line args into experiment config file under `configs/experiments` folder
-- [x] added restoring / checkpointing mechanism
-- [x] added tensorboard
+- [x] clean the code and fixed some of the mistakes
+- [x] change code structure
+- [x] add multi-speaker and emotion embendings
+- [x] add preprocessing
+- [x] move all the configs from command line args into experiment config file under `configs/experiments` folder
+- [x] add restoring / checkpointing mechanism
+- [x] add tensorboard
+- [x] make decoder work with n > 1 frames per step
+- [x] make training work at FP16
 
 ## TODO:
-
-- [ ] make decoder work with n > 1 frames per step
-- [ ] make training work at FP16
+- [ ] Add multi-spot instance training for AWS
 
 ## Getting Started
 
