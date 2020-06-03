@@ -5,4 +5,4 @@ librosa
 scipy
 Unidecode
 tensorboard
-#torch==1.1.0
+torch==1.1.0

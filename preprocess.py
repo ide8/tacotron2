@@ -46,12 +46,12 @@ def process(speaker_path, speaker_name, speaker_id, process_audio=True, emotion_
     Returns:
         jobs: list of tuples to be processed by mapper
     """
-    with open(os.path.join(speaker_path, 'metadata.csv'), 'r') as f:
+    with open(os.path.join(speaker_path, 'metadata_e4.csv'), 'r') as f:
         jobs = []
         output_path = os.path.join(Config.output_directory, speaker_name)
         output_audio_path = os.path.join(output_path, 'wavs')
         pathlib.Path(output_audio_path).mkdir(parents=True, exist_ok=True)
-        emotion = 'neutral-normal'
+        emotion = 'neutral'
 
         for line in f:
             parts = line.strip().split('|')

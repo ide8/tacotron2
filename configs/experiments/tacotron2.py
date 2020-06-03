@@ -24,7 +24,7 @@ class Config:
     n_speakers = 128                             # Number of speakers
     speakers_embedding_dim = 16                  # Speaker embedding dimension
     try:
-        speaker_coefficients = json.load(open('/train/speaker_coefficients.json'))  # Dict with speaker coefficients
+        speaker_coefficients = json.load(open('train/speaker_coefficients.json'))  # Dict with speaker coefficients
     except IOError:
         print("Speaker coefficients dict is not available")
         speaker_coefficients = None
@@ -34,7 +34,7 @@ class Config:
     n_emotions = 15                              # N emotions
     emotions_embedding_dim = 8                   # Emotion embedding dimension
     try:
-        emotion_coefficients = json.load(open('/train/emotion_coefficients.json'))  # Dict with emotion coefficients
+        emotion_coefficients = json.load(open('train/emotion_coefficients.json'))  # Dict with emotion coefficients
     except IOError:
         print("Emotion coefficients dict is not available")
         emotion_coefficients = None
@@ -91,7 +91,7 @@ class Config:
 
     ### Script args
     model_name = "Tacotron2"
-    output_directory = "/logs"                   # Directory to save checkpoints
+    output_directory = "logs"                   # Directory to save checkpoints
     log_file = "nvlog.json"                      # Filename for logging
 
     anneal_steps = [500, 1000, 1500]             # Epochs after which decrease learning rate
@@ -102,8 +102,8 @@ class Config:
     restore_from = ''                                         # Checkpoint path to restore from
 
     # Training params
-    epochs = 1501                               # Number of total epochs to run
-    epochs_per_checkpoint = 50                   # Number of epochs per checkpoint
+    epochs = 300                               # Number of total epochs to run
+    epochs_per_checkpoint = 25                   # Number of epochs per checkpoint
     seed = 1234                                  # Seed for PyTorch random number generators
     dynamic_loss_scaling = True                  # Enable dynamic loss scaling
     amp_run = False                              # Enable AMP (FP16) # TODO: Make it work
@@ -120,8 +120,8 @@ class Config:
     # Dataset
     load_mel_from_dist = False                   # Loads mel spectrograms from disk instead of computing them on the fly
     text_cleaners = ['english_cleaners']         # Type of text cleaners for input text
-    training_files = '/train/train.txt'           # Path to training filelist
-    validation_files = '/train/val.txt'           # Path to validation filelist
+    training_files = 'train/train.txt'           # Path to training filelist
+    validation_files = 'train/val.txt'           # Path to validation filelist
 
     dist_url = 'tcp://localhost:23456'           # Url used to set up distributed training
     group_name = "group_name"                    # Distributed group name
@@ -148,52 +148,25 @@ class PreprocessingConfig:
     minimum_viable_dur = 0.05                    # min duration of audio
     text_limit = None                            # max text length (used by default)
     dur_limit = None                             # max audio duration (used by default)
-    n = 5000                                   # max size of training dataset per speaker
+    n = 15000                                   # max size of training dataset per speaker
     start_from_preprocessed = False               # load data.csv - should be in output_directory
 
-    output_directory = '/train'
+    output_directory = 'train'
     data = [
         {
             'path': 'data/raw-data/linda_johnson',
             'speaker_id': 0,
-            'process_audio': False,
-            'emotion_present': False
-        },
-        {
-           'path': 'data/raw-data/scarjo_the_dive_descript_grouped_50mil',
-           'speaker_id': 1,
-           'process_audio': True,
-           'emotion_present': False
-        },
-        {
-           'path': 'data/raw-data/scarjo_the_dive_descript_ungrouped',
-           'speaker_id': 1,
-           'process_audio': True,
-           'emotion_present': False
-        },
-        {
-            'path': 'data/raw-data/mellisa',
-            'speaker_id': 2,
             'process_audio': True,
             'emotion_present': True
         }
     ]
 
     emo_id_map = {
-        'neutral-normal': 0,
-        'calm-normal': 1,
-        'calm-strong': 2,
-        'happy-normal': 3,
-        'happy-strong': 4,
-        'sad-normal': 5,
-        'sad-strong': 6,
-        'angry-normal': 7,
-        'angry-strong': 8,
-        'fearful-normal': 9,
-        'fearful-strong': 10,
-        'disgust-normal': 11,
-        'disgust-strong': 12,
-        'surprised-normal': 13,
-        'surprised-strong': 14
-    }
-
+        'sad': 0,
+        'happy': 1,
+        'angry': 2,
+        'fearful': 3,
+        'disgust': 4,
+        'surprised': 5,
+        'neutral': 6,
+        'calm': 7}
