@@ -31,7 +31,7 @@ class Config:
 
     # Emotions
     use_emotions = True                          # Use emotions
-    n_emotions = 15                              # N emotions
+    n_emotions = 8                               # N emotions
     emotions_embedding_dim = 8                   # Emotion embedding dimension
     try:
         emotion_coefficients = json.load(open('train/emotion_coefficients.json'))  # Dict with emotion coefficients
@@ -69,7 +69,7 @@ class Config:
 
     # Optimization
     mask_padding = False                         # Use mask padding
-    use_loss_coefficients = True               # Use balancing coefficients
+    use_loss_coefficients = True                 # Use balancing coefficients
     # Loss scale for coefficients
     if emotion_coefficients is not None and speaker_coefficients is not None:
         loss_scale = 1.5 / (np.mean(list(speaker_coefficients.values())) * np.mean(list(emotion_coefficients.values())))
@@ -89,21 +89,25 @@ class Config:
         n_channels=512                           # Number of channels in WN
     )
 
+    ### Audio postprocessing params
+    snst = 0.00005                               # filter sensitivity
+    wdth = 1000                                  # width of filter
+
     ### Script args
     model_name = "Tacotron2"
-    output_directory = "logs"                   # Directory to save checkpoints
+    output_directory = "logs"                    # Directory to save checkpoints
     log_file = "nvlog.json"                      # Filename for logging
 
     anneal_steps = [500, 1000, 1500]             # Epochs after which decrease learning rate
     anneal_factor = 0.1                          # Factor for annealing learning rate
 
-    tacotron2_checkpoint = '/data/pretrained/t2_fp32_torch'   # Path to pre-trained Tacotron2 checkpoint for sample generation
-    waveglow_checkpoint = '/data/pretrained/wg_fp32_torch'    # Path to pre-trained WaveGlow checkpoint for sample generation
+    tacotron2_checkpoint = 'data/pretrained/t2_fp32_torch'    # Path to pre-trained Tacotron2 checkpoint for sample generation
+    waveglow_checkpoint = 'data/pretrained/wg_fp32_torch'     # Path to pre-trained WaveGlow checkpoint for sample generation
     restore_from = ''                                         # Checkpoint path to restore from
 
     # Training params
-    epochs = 300                               # Number of total epochs to run
-    epochs_per_checkpoint = 25                   # Number of epochs per checkpoint
+    epochs = 300                                 # Number of total epochs to run
+    epochs_per_checkpoint = 20                   # Number of epochs per checkpoint
     seed = 1234                                  # Seed for PyTorch random number generators
     dynamic_loss_scaling = True                  # Enable dynamic loss scaling
     amp_run = False                              # Enable AMP (FP16) # TODO: Make it work
@@ -114,7 +118,7 @@ class Config:
     use_saved_learning_rate = False
     learning_rate = 1e-3                         # Learning rate
     weight_decay = 1e-6                          # Weight decay
-    grad_clip_thresh = 1                       # Clip threshold for gradients
+    grad_clip_thresh = 1                         # Clip threshold for gradients
     batch_size = 64                              # Batch size per GPU
 
     # Dataset
@@ -129,7 +133,7 @@ class Config:
 
     # Sample phrases
     phrases = {
-        'speaker_ids': [0, 2],
+        'speaker_ids': [0],
         'texts': [
             'Hello, how are you doing today?',
             'I would like to eat a Hamburger.',
@@ -148,8 +152,8 @@ class PreprocessingConfig:
     minimum_viable_dur = 0.05                    # min duration of audio
     text_limit = None                            # max text length (used by default)
     dur_limit = None                             # max audio duration (used by default)
-    n = 15000                                   # max size of training dataset per speaker
-    start_from_preprocessed = False               # load data.csv - should be in output_directory
+    n = 100000                                     # max size of training dataset per speaker
+    start_from_preprocessed = False              # load data.csv - should be in output_directory
 
     output_directory = 'train'
     data = [
