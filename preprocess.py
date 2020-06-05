@@ -15,6 +15,7 @@ import pandas as pd
 from scipy.io import wavfile
 from tqdm import tqdm
 
+
 # Parse args
 parser = argparse.ArgumentParser(description='Pre-processing')
 parser.add_argument('--exp', type=str, default=None, required=True, help='Name of an experiment for configs setting.')
@@ -34,7 +35,7 @@ from tacotron2.text import text_to_sequence
 np.random.seed(42)
 
 
-def process(speaker_path, speaker_name, speaker_id, process_audio=True, emotion_present=False):
+def process(speaker_path, speaker_name, speaker_id, metadata_file, process_audio=True, emotion_present=False):
     """
     Parses 'metadata.csv'.
     Args:
@@ -46,7 +47,8 @@ def process(speaker_path, speaker_name, speaker_id, process_audio=True, emotion_
     Returns:
         jobs: list of tuples to be processed by mapper
     """
-    with open(os.path.join(speaker_path, 'metadata_e4.csv'), 'r') as f:
+    print(speaker_path)
+    with open(os.path.join(speaker_path, metadata_file), 'r') as f:
         jobs = []
         output_path = os.path.join(Config.output_directory, speaker_name)
         output_audio_path = os.path.join(output_path, 'wavs')
@@ -154,14 +156,15 @@ def main():
     else:
         jobs = []
         for speaker_data in tqdm(Config.data):
+            print(speaker_data['path'])
             for speaker_path, dirs, files in os.walk(speaker_data['path']):
-                if 'wavs' in dirs and 'metadata.csv' in files:
+                if 'wavs' in dirs and speaker_data['metadata_file'] in files:
                     speaker_name = speaker_data['path'].split('/')[-1]
                     speaker_id = speaker_data['speaker_id']
                     process_audio = speaker_data['process_audio']
                     emotion_present = speaker_data['emotion_present']
-
-                    sub_jobs = process(speaker_path, speaker_name, speaker_id, process_audio, emotion_present)
+                    sub_jobs = process(speaker_path, speaker_name, speaker_id, speaker_data['metadata_file'],
+                                       process_audio, emotion_present)
                     jobs += sub_jobs
 
         print('Files to convert:', len(jobs))

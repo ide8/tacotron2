@@ -53,7 +53,7 @@ class Config:
     attention_location_kernel_size = 31          # Kernel size for location-sensitive attention
 
     # Decoder
-    n_frames_per_step = 1                        # Number of frames processed per step
+    n_frames_per_step = 2                        # Number of frames processed per step
     decoder_rnn_dim = 1024                       # Number of units in decoder LSTM
     prenet_dim = 256                             # Number of ReLU units in prenet layers
     max_decoder_steps = 2000                     # Maximum number of output mel spectrograms
@@ -133,7 +133,7 @@ class Config:
 
     # Sample phrases
     phrases = {
-        'speaker_ids': [0],
+        'speaker_ids': [0, 1],
         'texts': [
             'Hello, how are you doing today?',
             'I would like to eat a Hamburger.',
@@ -152,25 +152,131 @@ class PreprocessingConfig:
     minimum_viable_dur = 0.05                    # min duration of audio
     text_limit = None                            # max text length (used by default)
     dur_limit = None                             # max audio duration (used by default)
-    n = 100000                                     # max size of training dataset per speaker
-    start_from_preprocessed = False              # load data.csv - should be in output_directory
+    n = 300000                                   # max size of training dataset per speaker
+    start_from_preprocessed = False               # load data.csv - should be in output_directory
 
     output_directory = 'train'
     data = [
+        # {
+        #     'path': 'data/raw-data/linda_johnson',
+        #     'speaker_id': 0,
+        #     'metadata_file': 'metadata_e4.csv',
+        #     'process_audio': True,
+        #     'emotion_present': True
+        # }
+        # {
+        #     'path': 'data/raw-data/melissa',
+        #     'speaker_id': 1,
+        #     'metadata_file': 'metadata_8_emo.csv',
+        #     'process_audio': True,
+        #     'emotion_present': True
+        # },
+        # {
+        #     'path': 'data/raw-data/blizzard_2013',
+        #     'speaker_id': 2,
+        #     'metadata_file': 'metadata_e4.csv',
+        #     'process_audio': True,
+        #     'emotion_present': True
+        # },
+        # {
+        #     'path': 'data/raw-data/blizzard_2012',
+        #     'speaker_id': 3,
+        #     'metadata_file': 'metadata_e4.csv',
+        #     'process_audio': True,
+        #     'emotion_present': True
+        # },
         {
-            'path': 'data/raw-data/linda_johnson',
-            'speaker_id': 0,
+            'path': 'data/raw-data/degrasse',
+            'speaker_id': 4,
+            'metadata_file': 'metadata_e4.csv',
             'process_audio': True,
             'emotion_present': True
-        }
+        },
+        # {
+        #     'path': 'data/raw-data/mcadams',
+        #     'speaker_id': 5,
+        #     'metadata_file': 'metadata_e4.csv',
+        #     'process_audio': True,
+        #     'emotion_present': True
+        # },
+        # {
+        #     'path': 'data/raw-data/scarjo_gcp',
+        #     'speaker_id': 6,
+        #     'metadata_file': 'metadata_e4.csv',
+        #     'process_audio': True,
+        #     'emotion_present': True
+        # },
+        # {
+        #     'path': 'data/raw-data/scarjo_her',
+        #     'speaker_id': 7,
+        #     'metadata_file': 'metadata_e4.csv',
+        #     'process_audio': True,
+        #     'emotion_present': True
+        # },
+        # {
+        #     'path': 'data/raw-data/scarjo_nikita',
+        #     'speaker_id': 8,
+        #     'metadata_file': 'metadata_e4.csv',
+        #     'process_audio': True,
+        #     'emotion_present': True
+        # },
+        # {
+        #     'path': 'data/raw-data/scarjo_the_dive_descript_grouped_50mil',
+        #     'speaker_id': 9,
+        #     'metadata_file': 'metadata_e4.csv',
+        #     'process_audio': True,
+        #     'emotion_present': True
+        # },
+        # {
+        #     'path': 'data/raw-data/scarjo_the_dive_descript_ungrouped',
+        #     'speaker_id': 10,
+        #     'metadata_file': 'metadata_e4.csv',
+        #     'process_audio': True,
+        #     'emotion_present': True
+        # },
+        # {
+        #     'path': 'data/raw-data/winslet',
+        #     'speaker_id': 11,
+        #     'metadata_file': 'metadata_e4.csv',
+        #     'process_audio': True,
+        #     'emotion_present': True
+        # },
+        # {
+        #     'path': 'data/raw-data/en_UK/by_book/female/elizabeth_klett/',
+        #     'speaker_id': 12,
+        #     'metadata_file': 'metadata_e4.csv',
+        #     'process_audio': True,
+        #     'emotion_present': True
+        # },
+        # {
+        #     'path': 'data/raw-data/en_US/by_book/female/judy_bieber/',
+        #     'speaker_id': 13,
+        #     'metadata_file': 'metadata_e4.csv',
+        #     'process_audio': True,
+        #     'emotion_present': True
+        # },
+        # {
+        #     'path': 'data/raw-data/en_US/by_book/female/mary_ann/',
+        #     'speaker_id': 14,
+        #     'metadata_file': 'metadata_e4.csv',
+        #     'process_audio': True,
+        #     'emotion_present': True
+        # },
+        # {
+        #     'path': 'data/raw-data/en_US/by_book/male/elliot_miller/',
+        #     'speaker_id': 15,
+        #     'metadata_file': 'metadata_e4.csv',
+        #     'process_audio': True,
+        #     'emotion_present': True
+        # },
     ]
 
     emo_id_map = {
-        'sad': 0,
-        'happy': 1,
-        'angry': 2,
-        'fearful': 3,
-        'disgust': 4,
-        'surprised': 5,
-        'neutral': 6,
-        'calm': 7}
+        'sad': int(0),
+        'happy': int(1),
+        'angry': int(2),
+        'fearful': int(3),
+        'disgust': int(4),
+        'surprised': int(5),
+        'neutral': int(6),
+        'calm': int(7)}

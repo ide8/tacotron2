@@ -54,7 +54,7 @@ class Config:
     attention_location_kernel_size = 31          # Kernel size for location-sensitive attention
 
     # Decoder
-    n_frames_per_step = 1                        # Number of frames processed per step
+    n_frames_per_step = 2                        # Number of frames processed per step
     decoder_rnn_dim = 1024                       # Number of units in decoder LSTM
     prenet_dim = 256                             # Number of ReLU units in prenet layers
     max_decoder_steps = 2000                     # Maximum number of output mel spectrograms
