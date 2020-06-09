@@ -15,6 +15,10 @@ class Config:
     n_mel_channels = 80                          # Number of bins in mel-spectrograms
     max_wav_value = 32768.0                      # Maximum audiowave value
 
+    # Audio postprocessing params
+    snst = 0.00005                               # filter sensitivity
+    wdth = 1000                                  # width of filter
+
     ### Tacotron Params
     # Symbols
     n_symbols = len(symbols)                     # Number of symbols in dictionary
@@ -114,14 +118,14 @@ class Config:
     use_saved_learning_rate = False
     learning_rate = 1e-3                         # Learning rate
     weight_decay = 1e-6                          # Weight decay
-    grad_clip_thresh = 1                       # Clip threshold for gradients
+    grad_clip_thresh = 1                         # Clip threshold for gradients
     batch_size = 64                              # Batch size per GPU
 
     # Dataset
     load_mel_from_dist = False                   # Loads mel spectrograms from disk instead of computing them on the fly
     text_cleaners = ['english_cleaners']         # Type of text cleaners for input text
-    training_files = '/train/train.txt'           # Path to training filelist
-    validation_files = '/train/val.txt'           # Path to validation filelist
+    training_files = '/train/train.txt'          # Path to training filelist
+    validation_files = '/train/val.txt'          # Path to validation filelist
 
     dist_url = 'tcp://localhost:23456'           # Url used to set up distributed training
     group_name = "group_name"                    # Distributed group name
@@ -148,31 +152,31 @@ class PreprocessingConfig:
     minimum_viable_dur = 0.05                    # min duration of audio
     text_limit = None                            # max text length (used by default)
     dur_limit = None                             # max audio duration (used by default)
-    n = 5000                                   # max size of training dataset per speaker
-    start_from_preprocessed = False               # load data.csv - should be in output_directory
+    n = 5000                                     # max size of training dataset per speaker
+    start_from_preprocessed = False              # load data.csv - should be in output_directory
 
     output_directory = '/train'
     data = [
         {
-            'path': 'data/raw-data/linda_johnson',
+            'path': '/raw-data/linda_johnson',
             'speaker_id': 0,
             'process_audio': False,
             'emotion_present': False
         },
         {
-           'path': 'data/raw-data/scarjo_the_dive_descript_grouped_50mil',
+           'path': '/raw-data/scarjo_the_dive_descript_grouped_50mil',
            'speaker_id': 1,
            'process_audio': True,
            'emotion_present': False
         },
         {
-           'path': 'data/raw-data/scarjo_the_dive_descript_ungrouped',
+           'path': '/raw-data/scarjo_the_dive_descript_ungrouped',
            'speaker_id': 1,
            'process_audio': True,
            'emotion_present': False
         },
         {
-            'path': 'data/raw-data/mellisa',
+            'path': '/raw-data/mellisa',
             'speaker_id': 2,
             'process_audio': True,
             'emotion_present': True
