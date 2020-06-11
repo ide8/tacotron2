@@ -33,10 +33,14 @@ import shutil
 import argparse
 import importlib
 import numpy as np
+from tqdm import tqdm
 from datetime import datetime
 from contextlib import contextmanager
 import matplotlib.pyplot as plt
 plt.rcParams.update({'font.size': 24})
+
+import warnings
+warnings.filterwarnings('ignore')
 
 # Torch
 import torch
@@ -194,14 +198,14 @@ def save_sample(model_name, model_path):
                         audio_numpy = audio[0].data.cpu().numpy()
                         alignments_numpy = alignments[0].data.cpu().numpy()
 
-                        yield speaker_id, emotion, audio_numpy, alignments_numpy
+                        yield speaker_id, emotion, audio_numpy, alignments_numpy, mel
                 else:
                     _, mel, _, alignments = t2.infer(inp, s_id)
                     audio = wg.infer(mel)
                     audio_numpy = audio[0].data.cpu().numpy()
                     alignments_numpy = alignments[0].data.cpu().numpy()
 
-                    yield speaker_id, None, audio_numpy, alignments_numpy
+                    yield speaker_id, None, audio_numpy, alignments_numpy, mel
 
 # adapted from: https://discuss.pytorch.org/t/opinion-eval-should-be-a-context-manager/18998/3
 # Following snippet is licensed under MIT license
@@ -323,7 +327,7 @@ def main():
 
     # Directories paths
     main_directory = os.path.join(Config.output_directory, args.exp, str_date, str_time)
-    tf_directory = os.path.join(main_directory, 'tf_events')
+    tf_directory = os.path.join(main_directory, 'tb_events')
     checkpoint_directory = os.path.join(main_directory, 'checkpoints')
     print('Experiment path: `{}`'.format(main_directory))
 
@@ -338,10 +342,11 @@ def main():
         os.makedirs(tf_directory)
 
     # Experiment files set up
-    tensorboard_writer = tensorboard.SummaryWriter(log_dir=tf_directory)
-    shutil.copy2('configs/__init__.py', os.path.join(main_directory, 'config.py'))
-    with open(os.path.join(main_directory, 'args.json'), 'w') as fl:
-        json.dump(vars(args), fl, indent=4)
+    if args.rank == 0:
+        tensorboard_writer = tensorboard.SummaryWriter(log_dir=tf_directory)
+        shutil.copy2('configs/__init__.py', os.path.join(main_directory, 'config.py'))
+        with open(os.path.join(main_directory, 'args.json'), 'w') as fl:
+            json.dump(vars(args), fl, indent=4)
 
     # Enable cuda
     torch.backends.cudnn.enabled = Config.cudnn_enabled
@@ -437,8 +442,12 @@ def main():
             train_epoch_avg_items_per_sec = 0.0
             num_iters = 0
 
-            for i, batch in enumerate(train_loader):
+            if args.rank == 0:
+                pb = tqdm(enumerate(train_loader), total=len(train_loader), desc=f'Epoch: {epoch}/{Config.epochs}')
+            else:
+                pb = enumerate(train_loader)
 
+            for i, batch in pb:
                 iter_start_time = time.time()
                 adjust_learning_rate(epoch, optimizer, learning_rate=Config.learning_rate,
                                      anneal_steps=Config.anneal_steps, anneal_factor=Config.anneal_factor)
@@ -483,8 +492,6 @@ def main():
                 items_per_sec = reduced_num_items/iter_time
                 train_epoch_avg_items_per_sec += items_per_sec
 
-                print('{} - Batch: {}/{} epoch {}'.format(iter_time, i, len(train_loader), epoch))
-
             epoch_stop_time = time.time()
 
             epoch_time = epoch_stop_time - epoch_start_time
@@ -495,33 +502,42 @@ def main():
             epoch_val_loss = validate(model, criterion, valset, Config.batch_size, args.world_size,
                                       collate_fn, distributed_run, batch_to_gpu)
 
-            tensorboard_writer.add_scalar(tag='train_stats/epoch_items_per_sec',
-                                          scalar_value=train_epoch_items_per_sec,
-                                          global_step=epoch)
-            tensorboard_writer.add_scalar(tag='train_stats/epoch_avg_items_per_sec',
-                                          scalar_value=train_epoch_avg_items_per_sec,
-                                          global_step=epoch)
-            tensorboard_writer.add_scalar(tag='train_stats/epoch_time',
-                                          scalar_value=epoch_time,
-                                          global_step=epoch)
-            tensorboard_writer.add_scalar(tag='epoch_avg_loss/train',
-                                          scalar_value=train_epoch_avg_loss,
-                                          global_step=epoch)
-            tensorboard_writer.add_scalar(tag='epoch_avg_loss/val',
-                                          scalar_value=epoch_val_loss,
-                                          global_step=epoch)
+            if args.rank == 0:
+                tensorboard_writer.add_scalar(tag='train_stats/epoch_items_per_sec',
+                                              scalar_value=train_epoch_items_per_sec,
+                                              global_step=epoch)
+                tensorboard_writer.add_scalar(tag='train_stats/epoch_avg_items_per_sec',
+                                              scalar_value=train_epoch_avg_items_per_sec,
+                                              global_step=epoch)
+                tensorboard_writer.add_scalar(tag='train_stats/epoch_time',
+                                              scalar_value=epoch_time,
+                                              global_step=epoch)
+                tensorboard_writer.add_scalar(tag='epoch_avg_loss/train',
+                                              scalar_value=train_epoch_avg_loss,
+                                              global_step=epoch)
+                tensorboard_writer.add_scalar(tag='epoch_avg_loss/val',
+                                              scalar_value=epoch_val_loss,
+                                              global_step=epoch)
 
-            if (epoch % Config.epochs_per_checkpoint == 0) and args.rank == 0:
+            if epoch != 0 and epoch % Config.epochs_per_checkpoint == 0 and args.rank == 0:
                 checkpoint_path = os.path.join(checkpoint_directory, 'checkpoint_{}'.format(epoch))
                 save_checkpoint(model, epoch, model_config, optimizer, checkpoint_path)
                 # Save test audio files to tensorboard
-                for i, (speaker_id, emotion, sample, alignment) in enumerate(save_sample(model_name, checkpoint_path)):
+                generation_pb = tqdm(
+                    enumerate(save_sample(model_name, checkpoint_path)),
+                    total=len(Config.phrases['speaker_ids']) * len(Config.phrases['texts']) * len(PConfig.emo_id_map)
+                )
 
+                for i, (speaker_id, emotion, sample, alignment, mel) in generation_pb:
                     sample = remove_crackle(sample, Config.wdth, Config.snst)
 
                     tag = 'epoch_{}/infer:speaker_{}_sample_{}'.format(epoch, speaker_id, i)
                     tag = '{}_emotion_{}'.format(tag, emotion) if Config.use_emotions else tag
-                    tensorboard_writer.add_audio(tag=tag, snd_tensor=sample, sample_rate=Config.sampling_rate)
+
+                    # Don't add audio to tb if it's too large
+                    if mel.shape[-1] < Config.max_frames:
+                        tensorboard_writer.add_audio(tag=tag, snd_tensor=sample, sample_rate=Config.sampling_rate)
+
                     fig = plt.figure(figsize=(10, 10))
                     plt.imshow(alignment, aspect='auto')
                     tensorboard_writer.add_figure(tag=tag, figure=fig)

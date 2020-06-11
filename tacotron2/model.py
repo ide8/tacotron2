@@ -678,11 +678,9 @@ class Tacotron2(nn.Module):
         # Merge embeddings
         merged_outputs = torch.cat(outputs, -1)
 
-
         # Decode
         mel_outputs, gate_outputs, alignments = self.decoder.infer(
             merged_outputs)
-
 
         # Post
         mel_outputs_postnet = self.postnet(mel_outputs)

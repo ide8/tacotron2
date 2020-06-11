@@ -5,7 +5,7 @@ import numpy as np
 
 
 class Config:
-    # Audio params
+    # ** Audio params **
     sampling_rate = 22050                        # Sampling rate
     filter_length = 1024                         # Filter length
     hop_length = 256                             # Hop (stride) length
@@ -19,7 +19,7 @@ class Config:
     snst = 0.00005                               # filter sensitivity
     wdth = 1000                                  # width of filter
 
-    ### Tacotron Params
+    # ** Tacotron Params **
     # Symbols
     n_symbols = len(symbols)                     # Number of symbols in dictionary
     symbols_embedding_dim = 512                  # Text input embedding dimension
@@ -28,7 +28,7 @@ class Config:
     n_speakers = 128                             # Number of speakers
     speakers_embedding_dim = 16                  # Speaker embedding dimension
     try:
-        speaker_coefficients = json.load(open('/train/speaker_coefficients.json'))  # Dict with speaker coefficients
+        speaker_coefficients = json.load(open('/drl/train/speaker_coefficients.json'))  # Dict with speaker coefficients
     except IOError:
         print("Speaker coefficients dict is not available")
         speaker_coefficients = None
@@ -38,7 +38,7 @@ class Config:
     n_emotions = 15                              # N emotions
     emotions_embedding_dim = 8                   # Emotion embedding dimension
     try:
-        emotion_coefficients = json.load(open('/train/emotion_coefficients.json'))  # Dict with emotion coefficients
+        emotion_coefficients = json.load(open('/drl/train/emotion_coefficients.json'))  # Dict with emotion coefficients
     except IOError:
         print("Emotion coefficients dict is not available")
         emotion_coefficients = None
@@ -57,10 +57,11 @@ class Config:
     attention_location_kernel_size = 31          # Kernel size for location-sensitive attention
 
     # Decoder
-    n_frames_per_step = 1                        # Number of frames processed per step
+    n_frames_per_step = 2                        # Number of frames processed per step
+    max_frames = 2000                            # Maximum number of frames for decoder
     decoder_rnn_dim = 1024                       # Number of units in decoder LSTM
     prenet_dim = 256                             # Number of ReLU units in prenet layers
-    max_decoder_steps = 2000                     # Maximum number of output mel spectrograms
+    max_decoder_steps = int(max_frames / n_frames_per_step)  # Maximum number of output mel spectrograms
     gate_threshold = 0.5                         # Probability threshold for stop token
     p_attention_dropout = 0.1                    # Dropout probability for attention LSTM
     p_decoder_dropout = 0.1                      # Dropout probability for decoder LSTM
@@ -73,14 +74,14 @@ class Config:
 
     # Optimization
     mask_padding = False                         # Use mask padding
-    use_loss_coefficients = True               # Use balancing coefficients
+    use_loss_coefficients = True                 # Use balancing coefficients
     # Loss scale for coefficients
     if emotion_coefficients is not None and speaker_coefficients is not None:
         loss_scale = 1.5 / (np.mean(list(speaker_coefficients.values())) * np.mean(list(emotion_coefficients.values())))
     else:
         loss_scale = None
 
-    ### Waveglow params
+    # ** Waveglow params **
     n_flows = 12                                 # Number of steps of flow
     n_group = 8                                  # Number of samples in a group processed by the steps of flow
     n_early_every = 4                            # Determines how often (i.e., after how many coupling layers) a number of channels (defined by --early-size parameter) are output to the loss function
@@ -93,20 +94,20 @@ class Config:
         n_channels=512                           # Number of channels in WN
     )
 
-    ### Script args
+    # ** Script args **
     model_name = "Tacotron2"
-    output_directory = "/logs"                   # Directory to save checkpoints
+    output_directory = "/drl/logs"                   # Directory to save checkpoints
     log_file = "nvlog.json"                      # Filename for logging
 
     anneal_steps = [500, 1000, 1500]             # Epochs after which decrease learning rate
     anneal_factor = 0.1                          # Factor for annealing learning rate
 
-    tacotron2_checkpoint = '/data/pretrained/t2_fp32_torch'   # Path to pre-trained Tacotron2 checkpoint for sample generation
-    waveglow_checkpoint = '/data/pretrained/wg_fp32_torch'    # Path to pre-trained WaveGlow checkpoint for sample generation
-    restore_from = ''                                         # Checkpoint path to restore from
+    tacotron2_checkpoint = '/drl/pretrained/t2_fp32_torch'   # Path to pre-trained Tacotron2 checkpoint for sample generation
+    waveglow_checkpoint = '/drl/pretrained/wg_fp32_torch'    # Path to pre-trained WaveGlow checkpoint for sample generation
+    restore_from = ''                                        # Checkpoint path to restore from
 
     # Training params
-    epochs = 1501                               # Number of total epochs to run
+    epochs = 1501                                # Number of total epochs to run
     epochs_per_checkpoint = 50                   # Number of epochs per checkpoint
     seed = 1234                                  # Seed for PyTorch random number generators
     dynamic_loss_scaling = True                  # Enable dynamic loss scaling
@@ -124,8 +125,8 @@ class Config:
     # Dataset
     load_mel_from_dist = False                   # Loads mel spectrograms from disk instead of computing them on the fly
     text_cleaners = ['english_cleaners']         # Type of text cleaners for input text
-    training_files = '/train/train.txt'          # Path to training filelist
-    validation_files = '/train/val.txt'          # Path to validation filelist
+    training_files = '/drl/train/train.txt'          # Path to training filelist
+    validation_files = '/drl/train/val.txt'          # Path to validation filelist
 
     dist_url = 'tcp://localhost:23456'           # Url used to set up distributed training
     group_name = "group_name"                    # Distributed group name
@@ -152,31 +153,31 @@ class PreprocessingConfig:
     minimum_viable_dur = 0.05                    # min duration of audio
     text_limit = None                            # max text length (used by default)
     dur_limit = None                             # max audio duration (used by default)
-    n = 5000                                     # max size of training dataset per speaker
-    start_from_preprocessed = False              # load data.csv - should be in output_directory
+    n = 15000                                    # max size of training dataset per speaker
+    start_from_preprocessed = True               # load data.csv - should be in output_directory
 
-    output_directory = '/train'
+    output_directory = '/drl/train'
     data = [
         {
-            'path': '/raw-data/linda_johnson',
+            'path': '/drl/raw-data/linda_johnson',
             'speaker_id': 0,
             'process_audio': False,
             'emotion_present': False
         },
         {
-           'path': '/raw-data/scarjo_the_dive_descript_grouped_50mil',
+           'path': '/drl/raw-data/scarjo_the_dive_descript_grouped_50mil',
            'speaker_id': 1,
            'process_audio': True,
            'emotion_present': False
         },
         {
-           'path': '/raw-data/scarjo_the_dive_descript_ungrouped',
+           'path': '/drl/raw-data/scarjo_the_dive_descript_ungrouped',
            'speaker_id': 1,
            'process_audio': True,
            'emotion_present': False
         },
         {
-            'path': '/raw-data/mellisa',
+            'path': '/drl/raw-data/melissa',
             'speaker_id': 2,
             'process_audio': True,
             'emotion_present': True
@@ -200,4 +201,3 @@ class PreprocessingConfig:
         'surprised-normal': 13,
         'surprised-strong': 14
     }
-

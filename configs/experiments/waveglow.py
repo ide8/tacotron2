@@ -5,7 +5,7 @@ import numpy as np
 
 
 class Config:
-    # Audio params
+    # ** Audio params **
     sampling_rate = 22050                        # Sampling rate
     filter_length = 1024                         # Filter length
     hop_length = 256                             # Hop (stride) length
@@ -15,7 +15,11 @@ class Config:
     n_mel_channels = 80                          # Number of bins in mel-spectrograms
     max_wav_value = 32768.0                      # Maximum audiowave value
 
-    ### Tacotron Params
+    # Audio postprocessing params
+    snst = 0.00005                               # filter sensitivity
+    wdth = 1000                                  # width of filter
+
+    # ** Tacotron Params **
     # Symbols
     n_symbols = len(symbols)                     # Number of symbols in dictionary
     symbols_embedding_dim = 512                  # Text input embedding dimension
@@ -24,21 +28,20 @@ class Config:
     n_speakers = 128                             # Number of speakers
     speakers_embedding_dim = 16                  # Speaker embedding dimension
     try:
-        speaker_coefficients = json.load(open('/train/speaker_coefficients.json'))  # Dict with speaker coefficients
+        speaker_coefficients = json.load(open('/drl/train/speaker_coefficients.json'))  # Dict with speaker coefficients
     except IOError:
         print("Speaker coefficients dict is not available")
         speaker_coefficients = None
 
     # Emotions
-    use_emotions = False                          # Use emotions
+    use_emotions = False                         # Use emotions
     n_emotions = 15                              # N emotions
     emotions_embedding_dim = 8                   # Emotion embedding dimension
     try:
-        emotion_coefficients = json.load(open('/train/emotion_coefficients.json'))  # Dict with emotion coefficients
+        emotion_coefficients = json.load(open('/drl/train/emotion_coefficients.json'))  # Dict with emotion coefficients
     except IOError:
         print("Emotion coefficients dict is not available")
         emotion_coefficients = None
-
 
     # Encoder
     encoder_kernel_size = 5                      # Encoder kernel size
@@ -55,9 +58,10 @@ class Config:
 
     # Decoder
     n_frames_per_step = 1                        # Number of frames processed per step
+    max_frames = 2000                            # Maximum number of frames for decoder
     decoder_rnn_dim = 1024                       # Number of units in decoder LSTM
     prenet_dim = 256                             # Number of ReLU units in prenet layers
-    max_decoder_steps = 2000                     # Maximum number of output mel spectrograms
+    max_decoder_steps = int(max_frames / n_frames_per_step)  # Maximum number of output mel spectrograms
     gate_threshold = 0.5                         # Probability threshold for stop token
     p_attention_dropout = 0.1                    # Dropout probability for attention LSTM
     p_decoder_dropout = 0.1                      # Dropout probability for decoder LSTM
@@ -77,7 +81,7 @@ class Config:
     else:
         loss_scale = None
 
-    ### Waveglow params
+    # ** Waveglow params **
     n_flows = 12                                 # Number of steps of flow
     n_group = 8                                  # Number of samples in a group processed by the steps of flow
     n_early_every = 4                            # Determines how often (i.e., after how many coupling layers) a number of channels (defined by --early-size parameter) are output to the loss function
@@ -90,17 +94,17 @@ class Config:
         n_channels=512                           # Number of channels in WN
     )
 
-    ### Script args
+    # ** Script args **
     model_name = "WaveGlow"
-    output_directory = "/logs"                   # Directory to save checkpoints
+    output_directory = "/drl/logs"               # Directory to save checkpoints
     log_file = "nvlog.json"                      # Filename for logging
 
-    anneal_steps = None             # Epochs after which decrease learning rate
+    anneal_steps = None                          # Epochs after which decrease learning rate
     anneal_factor = 0.1                          # Factor for annealing learning rate
 
-    tacotron2_checkpoint = '/logs/tacotron2/04-01-20/05-59-57/checkpoints/checkpoint_1520'   # Path to pre-trained Tacotron2 checkpoint for sample generation
-    waveglow_checkpoint = '/logs/default/04-01-20/17-38-01/checkpoints/checkpoint_2000'    # Path to pre-trained WaveGlow checkpoint for sample generation
-    restore_from = '/data/pretrained/wg_fp32_torch'      # Checkpoint path to restore from
+    tacotron2_checkpoint = '/drl/data/pretrained/t2_fp32_torch'   # Path to pre-trained Tacotron2 checkpoint for sample generation
+    waveglow_checkpoint = '/drl/data/pretrained/wg_fp32_torch'    # Path to pre-trained WaveGlow checkpoint for sample generation
+    restore_from = '/drl/data/pretrained/wg_fp32_torch'           # Checkpoint path to restore from
 
     # Training params
     epochs = 1001                                # Number of total epochs to run
@@ -118,12 +122,11 @@ class Config:
     grad_clip_thresh = 3.4028234663852886e+38    # Clip threshold for gradients
     batch_size = 11                              # Batch size per GPU
 
-
     # Dataset
     load_mel_from_dist = False                   # Loads mel spectrograms from disk instead of computing them on the fly
     text_cleaners = ['english_cleaners']         # Type of text cleaners for input text
-    training_files = '/train/train.txt'           # Path to training filelist
-    validation_files = '/train/val.txt'           # Path to validation filelist
+    training_files = '/drl/train/train.txt'      # Path to training filelist
+    validation_files = '/drl/train/val.txt'      # Path to validation filelist
 
     dist_url = 'tcp://localhost:23456'           # Url used to set up distributed training
     group_name = "group_name"                    # Distributed group name
@@ -153,28 +156,28 @@ class PreprocessingConfig:
     n = 100000                                   # max size of training dataset per speaker
     start_from_preprocessed = True               # load data.csv - should be in output_directory
 
-    output_directory = '/data'
+    output_directory = '/drl/train'
     data = [
         {
-            'path': '/raw-data/linda_johnson',
+            'path': '/drl/raw-data/linda_johnson',
             'speaker_id': 0,
             'process_audio': False,
             'emotion_present': False
         },
         {
-           'path': '/raw-data/scarjo_the_dive_descript_grouped_50mil',
+           'path': '/drl/raw-data/scarjo_the_dive_descript_grouped_50mil',
            'speaker_id': 1,
            'process_audio': True,
            'emotion_present': False
         },
         {
-           'path': '/raw-data/scarjo_the_dive_descript_ungrouped',
+           'path': '/drl/raw-data/scarjo_the_dive_descript_ungrouped',
            'speaker_id': 1,
            'process_audio': True,
            'emotion_present': False
         },
         {
-            'path': '/raw-data/mellisa',
+            'path': '/drl/raw-data/melissa',
             'speaker_id': 2,
             'process_audio': True,
             'emotion_present': True
@@ -198,4 +201,3 @@ class PreprocessingConfig:
         'surprised-normal': 13,
         'surprised-strong': 14
     }
-
