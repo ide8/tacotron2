@@ -34,7 +34,7 @@ from tacotron2.text import text_to_sequence
 np.random.seed(42)
 
 
-def process(speaker_path, speaker_name, speaker_id, process_audio=True, emotion_present=False):
+def process(audios_path, speaker_path, speaker_name, speaker_id, metadata_file, process_audio=True, emotion_present=False):
     """
     Parses 'metadata.csv'.
     Args:
@@ -46,12 +46,12 @@ def process(speaker_path, speaker_name, speaker_id, process_audio=True, emotion_
     Returns:
         jobs: list of tuples to be processed by mapper
     """
-    with open(os.path.join(speaker_path, 'metadata.csv'), 'r') as f:
+    with open(os.path.join(speaker_path, metadata_file), 'r') as f:
         jobs = []
-        output_path = os.path.join(Config.output_directory, speaker_name)
+        output_path = os.path.join(Config.output_directory, audios_path)
         output_audio_path = os.path.join(output_path, 'wavs')
         pathlib.Path(output_audio_path).mkdir(parents=True, exist_ok=True)
-        emotion = 'neutral-normal'
+        emotion = Config.base_emotion
 
         for line in f:
             parts = line.strip().split('|')
@@ -68,6 +68,9 @@ def process(speaker_path, speaker_name, speaker_id, process_audio=True, emotion_
                 file_name = file_name + '.wav'
 
             input_file_path = os.path.join(speaker_path, 'wavs', file_name)
+            if not os.path.exists(input_file_path):
+                continue
+
             final_file_path = os.path.join(output_audio_path, file_name)
 
             jobs.append((input_file_path, final_file_path, text, speaker_name, speaker_id, emotion, process_audio))
@@ -155,13 +158,17 @@ def main():
         jobs = []
         for speaker_data in tqdm(Config.data):
             for speaker_path, dirs, files in os.walk(speaker_data['path']):
-                if 'wavs' in dirs and 'metadata.csv' in files:
+                metadata_file = speaker_data['metadata_file']
+                if 'wavs' in dirs and metadata_file in files:
+
                     speaker_name = speaker_data['path'].split('/')[-1]
+                    audios_path = speaker_name + speaker_path.split(speaker_name)[1]
                     speaker_id = speaker_data['speaker_id']
                     process_audio = speaker_data['process_audio']
                     emotion_present = speaker_data['emotion_present']
 
-                    sub_jobs = process(speaker_path, speaker_name, speaker_id, process_audio, emotion_present)
+                    sub_jobs = process(audios_path, speaker_path, speaker_name, speaker_id, metadata_file,
+                                       process_audio, emotion_present)
                     jobs += sub_jobs
 
         print('Files to convert:', len(jobs))

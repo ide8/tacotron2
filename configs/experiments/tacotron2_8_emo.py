@@ -35,7 +35,7 @@ class Config:
 
     # Emotions
     use_emotions = True                          # Use emotions
-    n_emotions = 15                              # N emotions
+    n_emotions = 8                               # N emotions
     emotions_embedding_dim = 8                   # Emotion embedding dimension
     try:
         emotion_coefficients = json.load(open('/drl/train/emotion_coefficients.json'))  # Dict with emotion coefficients
@@ -99,15 +99,15 @@ class Config:
     output_directory = "/drl/logs"                   # Directory to save checkpoints
     log_file = "nvlog.json"                      # Filename for logging
 
-    anneal_steps = [500, 1000, 1500]             # Epochs after which decrease learning rate
+    anneal_steps = [550, 1000, 1500]             # Epochs after which decrease learning rate
     anneal_factor = 0.1                          # Factor for annealing learning rate
 
     tacotron2_checkpoint = '/drl/pretrained/t2_fp32_torch'   # Path to pre-trained Tacotron2 checkpoint for sample generation
     waveglow_checkpoint = '/drl/pretrained/wg_fp32_torch'    # Path to pre-trained WaveGlow checkpoint for sample generation
-    restore_from = ''                                        # Checkpoint path to restore from
+    restore_from = '/drl/logs/tacotron2_8_emo/15-06-20/10-47-44/checkpoints/checkpoint_350'                                        # Checkpoint path to restore from
 
     # Training params
-    epochs = 1501                                # Number of total epochs to run
+    epochs = 801                                 # Number of total epochs to run
     epochs_per_checkpoint = 50                   # Number of epochs per checkpoint
     seed = 1234                                  # Seed for PyTorch random number generators
     dynamic_loss_scaling = True                  # Enable dynamic loss scaling
@@ -153,52 +153,133 @@ class PreprocessingConfig:
     minimum_viable_dur = 0.05                    # min duration of audio
     text_limit = None                            # max text length (used by default)
     dur_limit = None                             # max audio duration (used by default)
-    n = 15000                                    # max size of training dataset per speaker
+    n = 30000                                    # max size of training dataset per speaker
     start_from_preprocessed = True               # load data.csv - should be in output_directory
-    base_emotion = 'neutral-normal'
+    base_emotion = 'neutral'
 
     output_directory = '/drl/train'
     data = [
         {
             'path': '/drl/raw-data/linda_johnson',
+            'metadata_file': 'metadata_e4.csv',
             'speaker_id': 0,
-            'process_audio': False,
-            'emotion_present': False
+            'process_audio': True,
+            'emotion_present': True
         },
-        {
-           'path': '/drl/raw-data/scarjo_the_dive_descript_grouped_50mil',
-           'speaker_id': 1,
-           'process_audio': True,
-           'emotion_present': False
-        },
-        {
-           'path': '/drl/raw-data/scarjo_the_dive_descript_ungrouped',
-           'speaker_id': 1,
-           'process_audio': True,
-           'emotion_present': False
-        },
+        # {
+        #     'path': '/drl/raw-data/scarjo_the_dive_descript_grouped_50mil',
+        #     'metadata_file': 'metadata_e4.csv',
+        #     'speaker_id': 1,
+        #     'process_audio': True,
+        #     'emotion_present': True
+        # },
+        # {
+        #     'path': '/drl/raw-data/scarjo_the_dive_descript_ungrouped',
+        #     'metadata_file': 'metadata_e4.csv',
+        #     'speaker_id': 1,
+        #     'process_audio': True,
+        #     'emotion_present': True
+        # },
+        # {
+        #     'path': '/drl/raw-data/scarjo_gcp',
+        #     'metadata_file': 'metadata_e4.csv',
+        #     'speaker_id': 1,
+        #     'process_audio': True,
+        #     'emotion_present': True
+        # },
+        # {
+        #     'path': '/drl/raw-data/scarjo_her',
+        #     'metadata_file': 'metadata_e4.csv',
+        #     'speaker_id': 1,
+        #     'process_audio': True,
+        #     'emotion_present': True
+        # },
+        # {
+        #     'path': '/drl/raw-data/scarjo_nikita',
+        #     'metadata_file': 'metadata_e4.csv',
+        #     'speaker_id': 1,
+        #     'process_audio': True,
+        #     'emotion_present': True
+        # },
         {
             'path': '/drl/raw-data/melissa',
+            'metadata_file': 'metadata_8_emo.csv',
             'speaker_id': 2,
             'process_audio': True,
             'emotion_present': True
-        }
+        },
+        # {
+        #     'path': '/drl/raw-data/blizzard_2012',
+        #     'metadata_file': 'metadata_e4.csv',
+        #     'speaker_id': 3,
+        #     'process_audio': True,
+        #     'emotion_present': True
+        # },
+        # {
+        #     'path': '/drl/raw-data/blizzard_2013',
+        #     'metadata_file': 'metadata_e4.csv',
+        #     'speaker_id': 4,
+        #     'process_audio': True,
+        #     'emotion_present': True
+        # },
+        # {
+        #     'path': '/drl/raw-data/degrasse',
+        #     'metadata_file': 'metadata_e4.csv',
+        #     'speaker_id': 5,
+        #     'process_audio': True,
+        #     'emotion_present': True
+        # },
+        # {
+        #     'path': '/drl/raw-data/en_UK/by_book/female/elizabeth_klett',
+        #     'metadata_file': 'metadata_e4.csv',
+        #     'speaker_id': 6,
+        #     'process_audio': True,
+        #     'emotion_present': True
+        # },
+        # {
+        #     'path': '/drl/raw-data/en_US/by_book/female/judy_bieber',
+        #     'metadata_file': 'metadata_e4.csv',
+        #     'speaker_id': 7,
+        #     'process_audio': True,
+        #     'emotion_present': True
+        # },
+        # {
+        #     'path': '/drl/raw-data/en_US/by_book/female/mary_ann',
+        #     'metadata_file': 'metadata_e4.csv',
+        #     'speaker_id': 8,
+        #     'process_audio': True,
+        #     'emotion_present': True
+        # },
+        # {
+        #     'path': '/drl/raw-data/en_US/by_book/male/elliot_miller',
+        #     'metadata_file': 'metadata_e4.csv',
+        #     'speaker_id': 9,
+        #     'process_audio': True,
+        #     'emotion_present': True
+        # },
+        # {
+        #     'path': '/drl/raw-data/mcadams',
+        #     'metadata_file': 'metadata_e4.csv',
+        #     'speaker_id': 10,
+        #     'process_audio': True,
+        #     'emotion_present': True
+        # },
+        # {
+        #     'path': '/drl/raw-data/winslet',
+        #     'metadata_file': 'metadata_e4.csv',
+        #     'speaker_id': 11,
+        #     'process_audio': True,
+        #     'emotion_present': True
+        # }
     ]
 
     emo_id_map = {
-        'neutral-normal': 0,
-        'calm-normal': 1,
-        'calm-strong': 2,
-        'happy-normal': 3,
-        'happy-strong': 4,
-        'sad-normal': 5,
-        'sad-strong': 6,
-        'angry-normal': 7,
-        'angry-strong': 8,
-        'fearful-normal': 9,
-        'fearful-strong': 10,
-        'disgust-normal': 11,
-        'disgust-strong': 12,
-        'surprised-normal': 13,
-        'surprised-strong': 14
+        'sad': int(0),
+        'happy': int(1),
+        'angry': int(2),
+        'fearful': int(3),
+        'disgust': int(4),
+        'surprised': int(5),
+        'neutral': int(6),
+        'calm': int(7)
     }

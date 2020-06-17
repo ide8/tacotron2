@@ -542,7 +542,8 @@ def main():
                     plt.imshow(alignment, aspect='auto')
                     tensorboard_writer.add_figure(tag=tag, figure=fig)
 
-    tensorboard_writer.close()
+    if args.rank == 0:
+        tensorboard_writer.close()
 
 
 if __name__ == '__main__':
