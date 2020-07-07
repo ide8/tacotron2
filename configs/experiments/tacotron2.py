@@ -164,111 +164,14 @@ class PreprocessingConfig:
         #     'process_audio': True,
         #     'emotion_present': True
         # }
-        # {
-        #     'path': 'data/raw-data/melissa',
-        #     'speaker_id': 1,
-        #     'metadata_file': 'metadata_8_emo.csv',
-        #     'process_audio': True,
-        #     'emotion_present': True
-        # },
-        # {
-        #     'path': 'data/raw-data/blizzard_2013',
-        #     'speaker_id': 2,
-        #     'metadata_file': 'metadata_e4.csv',
-        #     'process_audio': True,
-        #     'emotion_present': True
-        # },
-        # {
-        #     'path': 'data/raw-data/blizzard_2012',
-        #     'speaker_id': 3,
-        #     'metadata_file': 'metadata_e4.csv',
-        #     'process_audio': True,
-        #     'emotion_present': True
-        # },
         {
-            'path': 'data/raw-data/degrasse',
-            'speaker_id': 4,
-            'metadata_file': 'metadata_e4.csv',
-            'process_audio': True,
+            'path': '/content/drive/My Drive/!PRJ/TheStateOfDarkness/Audio_Speech_Actors_01-24/Actor_01',
+            'speaker_id': 1,
+            'metadata_file': 'metadata.csv',
+            'process_audio': False,
             'emotion_present': True
-        },
-        # {
-        #     'path': 'data/raw-data/mcadams',
-        #     'speaker_id': 5,
-        #     'metadata_file': 'metadata_e4.csv',
-        #     'process_audio': True,
-        #     'emotion_present': True
-        # },
-        # {
-        #     'path': 'data/raw-data/scarjo_gcp',
-        #     'speaker_id': 6,
-        #     'metadata_file': 'metadata_e4.csv',
-        #     'process_audio': True,
-        #     'emotion_present': True
-        # },
-        # {
-        #     'path': 'data/raw-data/scarjo_her',
-        #     'speaker_id': 7,
-        #     'metadata_file': 'metadata_e4.csv',
-        #     'process_audio': True,
-        #     'emotion_present': True
-        # },
-        # {
-        #     'path': 'data/raw-data/scarjo_nikita',
-        #     'speaker_id': 8,
-        #     'metadata_file': 'metadata_e4.csv',
-        #     'process_audio': True,
-        #     'emotion_present': True
-        # },
-        # {
-        #     'path': 'data/raw-data/scarjo_the_dive_descript_grouped_50mil',
-        #     'speaker_id': 9,
-        #     'metadata_file': 'metadata_e4.csv',
-        #     'process_audio': True,
-        #     'emotion_present': True
-        # },
-        # {
-        #     'path': 'data/raw-data/scarjo_the_dive_descript_ungrouped',
-        #     'speaker_id': 10,
-        #     'metadata_file': 'metadata_e4.csv',
-        #     'process_audio': True,
-        #     'emotion_present': True
-        # },
-        # {
-        #     'path': 'data/raw-data/winslet',
-        #     'speaker_id': 11,
-        #     'metadata_file': 'metadata_e4.csv',
-        #     'process_audio': True,
-        #     'emotion_present': True
-        # },
-        # {
-        #     'path': 'data/raw-data/en_UK/by_book/female/elizabeth_klett/',
-        #     'speaker_id': 12,
-        #     'metadata_file': 'metadata_e4.csv',
-        #     'process_audio': True,
-        #     'emotion_present': True
-        # },
-        # {
-        #     'path': 'data/raw-data/en_US/by_book/female/judy_bieber/',
-        #     'speaker_id': 13,
-        #     'metadata_file': 'metadata_e4.csv',
-        #     'process_audio': True,
-        #     'emotion_present': True
-        # },
-        # {
-        #     'path': 'data/raw-data/en_US/by_book/female/mary_ann/',
-        #     'speaker_id': 14,
-        #     'metadata_file': 'metadata_e4.csv',
-        #     'process_audio': True,
-        #     'emotion_present': True
-        # },
-        # {
-        #     'path': 'data/raw-data/en_US/by_book/male/elliot_miller/',
-        #     'speaker_id': 15,
-        #     'metadata_file': 'metadata_e4.csv',
-        #     'process_audio': True,
-        #     'emotion_present': True
-        # },
+        }
+        
     ]
 
     emo_id_map = {
