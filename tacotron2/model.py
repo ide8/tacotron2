@@ -405,17 +405,19 @@ class Decoder(nn.Module):
         gate_output: gate output energies
         attention_weights:
         """
-        cell_input = torch.cat((decoder_input, self.attention_context), -1)
 
+        cell_input = torch.cat((decoder_input, self.attention_context), -1)
 
         self.attention_hidden, self.attention_cell = self.attention_rnn(
             cell_input, (self.attention_hidden, self.attention_cell))
+
         self.attention_hidden = F.dropout(
             self.attention_hidden, self.p_attention_dropout, self.training)
 
         attention_weights_cat = torch.cat(
             (self.attention_weights.unsqueeze(1),
              self.attention_weights_cum.unsqueeze(1)), dim=1)
+
         self.attention_context, self.attention_weights = self.attention_layer(
             self.attention_hidden, self.memory, self.processed_memory,
             attention_weights_cat, self.mask)
@@ -464,7 +466,7 @@ class Decoder(nn.Module):
             decoder_input_frames.append(self.prenet(decoder_inputs[:, :, i*z:(i+1)*z]))
 
         self.initialize_decoder_states(
-            memory, mask=~get_mask_from_lengths(memory_lengths))
+            memory, mask=torch.logical_not(get_mask_from_lengths(memory_lengths)).type(torch.uint8))
 
         mel_outputs, gate_outputs, alignments = [], [], []
 
@@ -474,6 +476,7 @@ class Decoder(nn.Module):
 
                 mel_output, gate_output, attention_weights = self.decode(
                     decoder_input)
+
                 gate_outputs += [gate_output.squeeze() if memory.shape[0] > 1 else gate_output]
                 alignments += [attention_weights]
 
@@ -647,6 +650,7 @@ class Tacotron2(nn.Module):
             merged_outputs, targets, memory_lengths=input_lengths)
 
         mel_outputs_postnet = self.postnet(mel_outputs)
+
         mel_outputs_postnet = mel_outputs + mel_outputs_postnet
 
         return self.parse_output(

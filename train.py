@@ -89,7 +89,7 @@ def reduce_tensor(tensor, num_gpus):
     """
     rt = tensor.clone()
     dist.all_reduce(rt, op=dist.reduce_op.SUM)
-    rt /= num_gpus
+    rt = float(rt)/num_gpus
     return rt
 
 
@@ -255,7 +255,7 @@ def validate(model, criterion, valset, batch_size, world_size, collate_fn, distr
             loss = balance_loss(x, y, y_pred, criterion) if Config.use_loss_coefficients else criterion(y_pred, y)
 
             if distributed_run:
-                reduced_val_loss = reduce_tensor(loss.data, world_size).item()
+                reduced_val_loss = reduce_tensor(loss.data, world_size)
             else:
                 reduced_val_loss = loss.item()
 
@@ -332,14 +332,16 @@ def main():
     print('Experiment path: `{}`'.format(main_directory))
 
     # Directories check
-    if not os.path.exists(main_directory):
-        os.makedirs(main_directory)
+    if args.rank == 0:
+        if not os.path.exists(main_directory):
+            os.makedirs(main_directory)
+    if args.rank == 0:
+        if not os.path.exists(checkpoint_directory):
+            os.makedirs(checkpoint_directory)
 
-    if not os.path.exists(checkpoint_directory):
-        os.makedirs(checkpoint_directory)
-
-    if not os.path.exists(tf_directory):
-        os.makedirs(tf_directory)
+    if args.rank == 0:
+        if not os.path.exists(tf_directory):
+            os.makedirs(tf_directory)
 
     # Experiment files set up
     if args.rank == 0:
@@ -458,8 +460,8 @@ def main():
                 loss = balance_loss(x, y, y_pred, criterion) if Config.use_loss_coefficients else criterion(y_pred, y)
 
                 if distributed_run:
-                    reduced_loss = reduce_tensor(loss.data, args.world_size).item()
-                    reduced_num_items = reduce_tensor(num_items.data, 1).item()
+                    reduced_loss = reduce_tensor(loss.data, args.world_size)
+                    reduced_num_items = reduce_tensor(num_items.data, 1)
                 else:
                     reduced_loss = loss.item()
                     reduced_num_items = num_items.item()
@@ -542,7 +544,8 @@ def main():
                     plt.imshow(alignment, aspect='auto')
                     tensorboard_writer.add_figure(tag=tag, figure=fig)
 
-    tensorboard_writer.close()
+    if args.rank == 0:
+        tensorboard_writer.close()
 
 
 if __name__ == '__main__':
