@@ -308,11 +308,14 @@ def balance_loss(x, y, y_pred, criterion):
     for i in range(batch_size):
         yi = [el[i] for el in y]
         yi_p = [el[i] for el in y_pred]
-
-        e_c = Config.emotion_coefficients[str(emotion_ids[i].item())]
+        
         s_c = Config.speaker_coefficients[str(speaker_ids[i].item())]
 
-        single_loss = e_c * s_c * criterion(yi_p, yi)
+        single_loss = s_c * criterion(yi_p, yi)
+        
+        if Config.use_emotions:
+            e_c = Config.emotion_coefficients[str(emotion_ids[i].item())]
+            single_loss *= e_c
 
         loss_balanced += single_loss
 
@@ -525,21 +528,25 @@ def main():
                 checkpoint_path = os.path.join(checkpoint_directory, 'checkpoint_{}'.format(epoch))
                 save_checkpoint(model, epoch, model_config, optimizer, checkpoint_path)
                 # Save test audio files to tensorboard
+                total = len(Config.phrases['speaker_ids']) * len(Config.phrases['texts'])
+                if Config.use_emotions:
+                    total *= len(PConfig.emo_id_map)
+
                 generation_pb = tqdm(
                     enumerate(save_sample(model_name, checkpoint_path)),
-                    total=len(Config.phrases['speaker_ids']) * len(Config.phrases['texts']) * len(PConfig.emo_id_map)
+                    total=total
                 )
 
                 for i, (speaker_id, emotion, sample, alignment, mel) in generation_pb:
                     sample = remove_crackle(sample, Config.wdth, Config.snst)
-
+                    
                     tag = 'epoch_{}/infer:speaker_{}_sample_{}'.format(epoch, speaker_id, i)
                     tag = '{}_emotion_{}'.format(tag, emotion) if Config.use_emotions else tag
-
+                    
                     # Don't add audio to tb if it's too large
                     if mel.shape[-1] < Config.max_frames:
                         tensorboard_writer.add_audio(tag=tag, snd_tensor=sample, sample_rate=Config.sampling_rate)
-
+                        
                     fig = plt.figure(figsize=(10, 10))
                     plt.imshow(alignment, aspect='auto')
                     tensorboard_writer.add_figure(tag=tag, figure=fig)

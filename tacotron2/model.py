@@ -466,7 +466,8 @@ class Decoder(nn.Module):
             decoder_input_frames.append(self.prenet(decoder_inputs[:, :, i*z:(i+1)*z]))
 
         self.initialize_decoder_states(
-            memory, mask=torch.logical_not(get_mask_from_lengths(memory_lengths)).type(torch.uint8))
+            memory, mask=~get_mask_from_lengths(memory_lengths))
+            # memory, mask=torch.logical_not(get_mask_from_lengths(memory_lengths)).type(torch.uint8))  # Use instead for torch 1.7
 
         mel_outputs, gate_outputs, alignments = [], [], []
 

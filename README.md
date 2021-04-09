@@ -86,7 +86,7 @@ docker build --tag taco .
 ```
 Run docker container:  
 ```bash
-docker run --shm-size=8G --runtime=nvidia -v /absolute/path/to/your/code:/app -v /absolute/path/to/your/training_data:/data -v /absolute/path/to/your/logs:/logs -v /absolute/path/to/your/raw-data:/raw-data -detach taco sleep inf
+docker run --shm-size=8G --runtime=nvidia -v /absolute/path/to/your/code:/app -v /absolute/path/to/your/training_data:/mnt/train -v /absolute/path/to/your/logs:/mnt/logs -v /absolute/path/to/your/raw-data:/mnt/raw-data -v /absolute/path/to/your/pretrained-checkpoint:/mnt/pretrained -detach taco sleep inf
 ```
 Check container id:
 ```bash

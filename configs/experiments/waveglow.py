@@ -28,7 +28,7 @@ class Config:
     n_speakers = 128                             # Number of speakers
     speakers_embedding_dim = 16                  # Speaker embedding dimension
     try:
-        speaker_coefficients = json.load(open('/drl/train/speaker_coefficients.json'))  # Dict with speaker coefficients
+        speaker_coefficients = json.load(open('/mnt/train/speaker_coefficients.json'))  # Dict with speaker coefficients
     except IOError:
         print("Speaker coefficients dict is not available")
         speaker_coefficients = None
@@ -38,7 +38,7 @@ class Config:
     n_emotions = 15                              # N emotions
     emotions_embedding_dim = 8                   # Emotion embedding dimension
     try:
-        emotion_coefficients = json.load(open('/drl/train/emotion_coefficients.json'))  # Dict with emotion coefficients
+        emotion_coefficients = json.load(open('/mnt/train/emotion_coefficients.json'))  # Dict with emotion coefficients
     except IOError:
         print("Emotion coefficients dict is not available")
         emotion_coefficients = None
@@ -96,15 +96,15 @@ class Config:
 
     # ** Script args **
     model_name = "WaveGlow"
-    output_directory = "/drl/logs"               # Directory to save checkpoints
+    output_directory = "/mnt/logs"               # Directory to save checkpoints
     log_file = "nvlog.json"                      # Filename for logging
 
     anneal_steps = None                          # Epochs after which decrease learning rate
     anneal_factor = 0.1                          # Factor for annealing learning rate
 
-    tacotron2_checkpoint = '/drl/data/pretrained/t2_fp32_torch'   # Path to pre-trained Tacotron2 checkpoint for sample generation
-    waveglow_checkpoint = '/drl/data/pretrained/wg_fp32_torch'    # Path to pre-trained WaveGlow checkpoint for sample generation
-    restore_from = '/drl/data/pretrained/wg_fp32_torch'           # Checkpoint path to restore from
+    tacotron2_checkpoint = '/mnt/pretrained/t2_fp32_torch'   # Path to pre-trained Tacotron2 checkpoint for sample generation
+    waveglow_checkpoint = '/mnt/pretrained/wg_fp32_torch'    # Path to pre-trained WaveGlow checkpoint for sample generation
+    restore_from = '/mnt/pretrained/wg_fp32_torch'           # Checkpoint path to restore from
 
     # Training params
     epochs = 1001                                # Number of total epochs to run
@@ -125,8 +125,8 @@ class Config:
     # Dataset
     load_mel_from_dist = False                   # Loads mel spectrograms from disk instead of computing them on the fly
     text_cleaners = ['english_cleaners']         # Type of text cleaners for input text
-    training_files = '/drl/train/train.txt'      # Path to training filelist
-    validation_files = '/drl/train/val.txt'      # Path to validation filelist
+    training_files = '/mnt/train/train.txt'      # Path to training filelist
+    validation_files = '/mnt/train/val.txt'      # Path to validation filelist
 
     dist_url = 'tcp://localhost:23456'           # Url used to set up distributed training
     group_name = "group_name"                    # Distributed group name
@@ -156,28 +156,28 @@ class PreprocessingConfig:
     n = 100000                                   # max size of training dataset per speaker
     start_from_preprocessed = True               # load data.csv - should be in output_directory
 
-    output_directory = '/drl/train'
+    output_directory = '/mnt/train'
     data = [
         {
-            'path': '/drl/raw-data/linda_johnson',
+            'path': '/mnt/raw-data/linda_johnson',
             'speaker_id': 0,
             'process_audio': False,
             'emotion_present': False
         },
         {
-           'path': '/drl/raw-data/scarjo_the_dive_descript_grouped_50mil',
+           'path': '/mnt/raw-data/scarjo_the_dive_descript_grouped_50mil',
            'speaker_id': 1,
            'process_audio': True,
            'emotion_present': False
         },
         {
-           'path': '/drl/raw-data/scarjo_the_dive_descript_ungrouped',
+           'path': '/mnt/raw-data/scarjo_the_dive_descript_ungrouped',
            'speaker_id': 1,
            'process_audio': True,
            'emotion_present': False
         },
         {
-            'path': '/drl/raw-data/melissa',
+            'path': '/mnt/raw-data/melissa',
             'speaker_id': 2,
             'process_audio': True,
             'emotion_present': True
